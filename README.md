@@ -44,3 +44,72 @@ Book-it-quick/
 ├── db-migration.sql             # Database initialization script
 ├── pom.xml                      # Maven backend dependencies
 └── package.json                 # Node.js frontend dependencies
+
+```
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+* Java Development Kit (JDK) 25
+* Node.js (v18 or higher) and npm
+* MySQL Server 5.7+
+* Maven
+
+### 1. Database Setup
+
+1. Create a new MySQL database named `book_it_quick`.
+2. Execute the provided `db-migration.sql` script to generate the schema and insert the default system categories.
+3. Update the database credentials (username and password) in `src/main/resources/application.yml`.
+
+### 2. Backend Initialization
+
+1. Navigate to the project root directory.
+2. Resolve Maven dependencies and start the Spring Boot application:
+```bash
+mvn clean install
+mvn spring-boot:run
+
+```
+
+
+*The backend server will initialize on `http://localhost:8080`.*
+
+### 3. Frontend Initialization
+
+1. Open a new terminal instance in the project root directory.
+2. Install the required Node modules:
+```bash
+npm install
+
+```
+
+
+3. Start the Vite development server:
+```bash
+npm run dev
+
+```
+
+
+*The frontend client will be accessible at `http://localhost:5173`. CORS has been globally configured to allow communication between the two ports.*
+
+## 🔒 API Documentation Overview
+
+The backend exposes a fully RESTful API. Key endpoints include:
+
+* `POST /api/auth/register` & `/api/auth/login` - User identity management.
+* `GET, POST, PUT, DELETE /api/bills` - Financial transaction CRUD operations.
+* `GET /api/categories` - Fetch system and user-defined categories.
+* `GET /api/stats/summary` & `/api/stats/daily` - Retrieve aggregated analytics data.
+
+*(For detailed request/response payloads, refer to the `api-test.http` file included in the repository).*
+
+## 👨‍💻 Author
+
+**Dio Stania Adinata**
+*Game Technology | Software Engineering*
+
+```
+
+```
