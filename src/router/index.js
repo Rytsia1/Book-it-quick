@@ -8,6 +8,7 @@ import Dashboard from '@/views/Dashboard.vue'
 import Analytics from '@/views/Analytics.vue'
 import Bills from '@/views/Bills.vue'
 import Categories from '@/views/Categories.vue'
+import Budget from '@/views/Budget.vue'
 
 /**
  * Route Configuration
@@ -74,6 +75,15 @@ const routes = [
     meta: {
       requiresAuth: true,
       title: 'Custom Categories - Personal Bookkeeping',
+    },
+  },
+  {
+    path: '/budget',
+    name: 'Budget',
+    component: Budget,
+    meta: {
+      requiresAuth: true,
+      title: 'Budget - Personal Bookkeeping',
     },
   },
   {

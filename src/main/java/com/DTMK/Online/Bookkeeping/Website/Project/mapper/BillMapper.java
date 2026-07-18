@@ -16,6 +16,74 @@ public interface BillMapper {
     @Select("SELECT * FROM t_bill WHERE user_id = #{userId} ORDER BY bill_date DESC")
     List<Bill> findBillsByUserId(Integer userId);
 
+    // ── Pagination support ─────────────────────────────────────────────
+    // These four methods back GET /api/bills/page and GET /api/bills/counts.
+    // They keep the existing findBillsByUserId untouched so the dashboard
+    // (which still loads the full list) keeps working unchanged.
+
+    /**
+     * Paginated read: returns one page of bills for a user, optionally
+     * filtered by type. Ordered by bill_date DESC then id DESC so pages
+     * stay stable when many rows share the same date.
+     * <p>
+     * The {@code <if>} block is MyBatis dynamic SQL — the {@code type}
+     * filter is only added when the caller passes a non-null value
+     * (i.e. the frontend filter tab is "all"). Setting type to 0 or 1
+     * restricts the result to expenses or income respectively.
+     * <p>
+     * {@code offset} is zero-based; {@code size} is the page size.
+     */
+    @org.apache.ibatis.annotations.Select({
+            "<script>",
+            "SELECT * FROM t_bill",
+            "WHERE user_id = #{userId}",
+            "<if test='type != null'> AND type = #{type} </if>",
+            "ORDER BY bill_date DESC, id DESC",
+            "LIMIT #{offset}, #{size}",
+            "</script>"
+    })
+    List<Bill> findBillsByPage(
+            @org.apache.ibatis.annotations.Param("userId") Integer userId,
+            @org.apache.ibatis.annotations.Param("type")   Integer type,
+            @org.apache.ibatis.annotations.Param("offset") int offset,
+            @org.apache.ibatis.annotations.Param("size")   int size);
+
+    /**
+     * Total row count for the same filter as {@link #findBillsByPage},
+     * used by {@code <el-pagination>} to render the page count.
+     */
+    @org.apache.ibatis.annotations.Select({
+            "<script>",
+            "SELECT COUNT(*) FROM t_bill",
+            "WHERE user_id = #{userId}",
+            "<if test='type != null'> AND type = #{type} </if>",
+            "</script>"
+    })
+    long countBillsByPage(
+            @org.apache.ibatis.annotations.Param("userId") Integer userId,
+            @org.apache.ibatis.annotations.Param("type")   Integer type);
+
+    /**
+     * Count of every bill (income + expense) for a user.
+     * Backs the "ALL" filter tab in {@code Bills.vue}.
+     */
+    @Select("SELECT COUNT(*) FROM t_bill WHERE user_id = #{userId}")
+    long countAllBills(Integer userId);
+
+    /**
+     * Count of income bills ({@code type = 1}) for a user.
+     * Backs the "INCOME" filter tab.
+     */
+    @Select("SELECT COUNT(*) FROM t_bill WHERE user_id = #{userId} AND type = 1")
+    long countIncomeBills(Integer userId);
+
+    /**
+     * Count of expense bills ({@code type = 0}) for a user.
+     * Backs the "EXPENSE" filter tab.
+     */
+    @Select("SELECT COUNT(*) FROM t_bill WHERE user_id = #{userId} AND type = 0")
+    long countExpenseBills(Integer userId);
+
     // Read: retrieves a single bill by its primary key.
     @Select("SELECT * FROM t_bill WHERE id = #{id}")
     Bill findById(Integer id);

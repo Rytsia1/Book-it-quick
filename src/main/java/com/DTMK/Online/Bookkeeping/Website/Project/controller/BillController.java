@@ -19,6 +19,7 @@ public class BillController {
 
     private final BillMapper billMapper;
     private final CategoryMapper categoryMapper;
+    private final com.DTMK.Online.Bookkeeping.Website.Project.service.BillService billService;
 
     /**
      * Default categories that every new user can use out of the box.
@@ -32,9 +33,47 @@ public class BillController {
     );
 
     // GET /api/bills?userId=1
+    // Returns the FULL list (no pagination). Kept for the Dashboard view,
+    // which still computes monthly stats and "Recent Transactions" from
+    // the entire dataset. New clients should prefer /api/bills/page.
     @GetMapping
     public ResponseEntity<List<Bill>> getBills(@RequestParam Integer userId) {
         return ResponseEntity.ok(billMapper.findBillsByUserId(userId));
+    }
+
+    /**
+     * Paginated read used by {@code Bills.vue}.
+     * <p>
+     * Example: {@code GET /api/bills/page?userId=1&page=1&size=20&type=0}
+     * returns up to 20 expense bills on page 1, sorted by bill_date DESC.
+     * The optional {@code type} parameter (0 = expense, 1 = income)
+     * mirrors the active filter tab. When {@code type} is omitted, all
+     * bills for the user are returned.
+     * <p>
+     * Response shape:
+     * <pre>{@code
+     * { "items": [...], "total": 142, "page": 1, "size": 20, "totalPages": 8 }
+     * }</pre>
+     */
+    @GetMapping("/page")
+    public ResponseEntity<com.DTMK.Online.Bookkeeping.Website.Project.dto.PageResult<Bill>> getBillsPage(
+            @RequestParam Integer userId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Integer type) {
+        return ResponseEntity.ok(billService.getBillsPage(userId, type, page, size));
+    }
+
+    /**
+     * Per-type bill counts used by the filter-tab badges in {@code Bills.vue}.
+     * Runs three cheap indexed {@code COUNT(*)} queries in the service
+     * layer so the frontend never has to make multiple round-trips.
+     * <p>
+     * Response shape: {@code { "all": 142, "income": 38, "expense": 104 }}
+     */
+    @GetMapping("/counts")
+    public ResponseEntity<java.util.Map<String, Long>> getBillCounts(@RequestParam Integer userId) {
+        return ResponseEntity.ok(billService.getBillCounts(userId));
     }
 
     // POST /api/bills

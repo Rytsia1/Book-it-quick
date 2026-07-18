@@ -84,6 +84,22 @@
       <el-empty v-if="filteredBills.length === 0" description="No transactions found" class="empty" />
     </div>
 
+    <!-- Pagination (server-driven). Below the table so the controls don't
+         compete with the filter tabs. Driven by /api/bills/page?page=&size=&type=. -->
+    <div class="pagination-bar">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :total="total"
+        :page-sizes="[10, 20, 50, 100]"
+        :pager-count="5"
+        layout="total, sizes, prev, pager, next, jumper"
+        background
+        @current-change="handlePageChange"
+        @size-change="handleSizeChange"
+      />
+    </div>
+
     <!-- Single shared Add/Edit bill pop-up (same window used on the Dashboard too). -->
     <BillDialog
       v-model:visible="dialogVisible"
@@ -94,7 +110,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
@@ -102,10 +118,21 @@ import BillDialog from '@/components/BillDialog.vue'
 
 const router = useRouter()
 
-const bills         = ref([])
-const activeFilter  = ref('all')
+const bills         = ref([])      // the current page of rows (already filtered server-side)
+const activeFilter  = ref('all')   // 'all' | 'income' | 'expense'
 const dialogVisible = ref(false)
-const editTarget    = ref(null)  // null = create mode, object = edit mode
+const editTarget    = ref(null)    // null = create mode, object = edit mode
+
+// ── Pagination state ────────────────────────────────────────────────
+const currentPage = ref(1)         // 1-based, sent to the server as ?page=
+const pageSize    = ref(20)        // rows per page, sent as ?size=
+const total       = ref(0)         // total rows matching the current filter, used by <el-pagination :total="...">
+const loading     = ref(false)     // shown while a page is being fetched
+
+// Per-filter totals so the tab badges (ALL / INCOME / EXPENSE) stay
+// accurate regardless of which page is currently displayed. Populated by
+// /api/bills/counts on mount and after every successful mutation.
+const tabCounts = ref({ all: 0, income: 0, expense: 0 })
 
 const filters = [
   { label: 'ALL',     value: 'all' },
@@ -130,11 +157,24 @@ const filteredBills = computed(() => {
   return bills.value
 })
 
+// Tab badge counts come from /api/bills/counts, NOT from the current page,
+// so the user always sees the real total for each filter even when they're
+// on page 7 of 50.
 const getFilterCount = (v) => {
-  if (v === 'all')     return bills.value.length
-  if (v === 'income')  return bills.value.filter(b => b.type === 1).length
-  if (v === 'expense') return bills.value.filter(b => b.type === 0).length
+  if (v === 'all')     return tabCounts.value.all
+  if (v === 'income')  return tabCounts.value.income
+  if (v === 'expense') return tabCounts.value.expense
   return 0
+}
+
+// Map the active tab to the optional `type` query param the server expects.
+// 'all'       → no type filter
+// 'income'    → type=1
+// 'expense'   → type=0
+const typeParamForCurrentFilter = () => {
+  if (activeFilter.value === 'income')  return 1
+  if (activeFilter.value === 'expense') return 0
+  return null
 }
 
 const formatCurrency = (amount) => {
@@ -147,17 +187,67 @@ const formatCurrency = (amount) => {
 
 const navigateToCategories = () => router.push('/categories')
 
+// Fetch a single page of bills from the server, plus refresh the per-filter
+// totals. Called on mount, after every mutation, and on every pagination
+// event. Skips the request when userId is missing (the watcher in
+// onMounted will already have redirected to /login).
 const fetchBills = async () => {
+  const userId = localStorage.getItem('userId')
+  if (!userId) {
+    ElMessage.error('Session expired. Please log in again.')
+    router.push('/login')
+    return
+  }
+  loading.value = true
   try {
-    const userId = localStorage.getItem('userId')
-    const data = await request.get('/bills', { params: { userId } })
-    bills.value = Array.isArray(data)
-      ? data.sort((a, b) => new Date(b.billDate) - new Date(a.billDate))
-      : []
+    // The list page and the per-type counts are independent — fire them
+    // in parallel so the page paints in one round-trip.
+    const type = typeParamForCurrentFilter()
+    const [page, counts] = await Promise.all([
+      request.get('/bills/page', {
+        params: { userId, page: currentPage.value, size: pageSize.value, type },
+      }),
+      request.get('/bills/counts', { params: { userId } }),
+    ])
+    bills.value = Array.isArray(page?.items) ? page.items : []
+    total.value = page?.total ?? 0
+    // Defensive: server returns { all, income, expense } but we only
+    // trust the shape we asked for.
+    tabCounts.value = {
+      all:     Number(counts?.all     ?? 0),
+      income:  Number(counts?.income  ?? 0),
+      expense: Number(counts?.expense ?? 0),
+    }
   } catch (e) {
-    ElMessage.error('Failed to load bills')
+    // Global axios interceptor will have already handled 401, so any
+    // error here is a real failure (network, 500, etc.).
+    const serverMsg = e?.response?.data?.message || e?.message || 'Failed to load bills'
+    console.error('fetchBills error:', e)
+    ElMessage.error(serverMsg)
+  } finally {
+    loading.value = false
   }
 }
+
+// <el-pagination> event handlers.
+const handlePageChange = (page) => {
+  currentPage.value = page
+  fetchBills()
+}
+const handleSizeChange = (size) => {
+  // Page size changed — reset to page 1 so the user doesn't end up on a
+  // page that no longer exists (e.g. page 5 of 10 with size=10 → page 5
+  // might not exist with size=50).
+  pageSize.value = size
+  currentPage.value = 1
+  fetchBills()
+}
+
+// Watch the active filter tab: re-fetch from page 1 whenever it changes.
+watch(activeFilter, () => {
+  currentPage.value = 1
+  fetchBills()
+})
 
 const handleCreate = () => {
   editTarget.value = null
@@ -365,6 +455,46 @@ onMounted(() => { fetchBills() })
 /* Empty */
 .empty { padding: 60px 0; }
 .empty :deep(.el-empty__description p) { color: var(--ash); font-size: 12px; }
+
+/* Pagination bar (Element Plus defaults to white-on-light; retheme it
+   to match the dark app palette). The :deep() selectors reach into
+   <el-pagination>'s generated child elements. */
+.pagination-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--graphite);
+  border: 1px solid var(--wire);
+  border-radius: 3px;
+}
+.pagination-bar :deep(.el-pagination) { color: var(--ash); }
+.pagination-bar :deep(.el-pager li),
+.pagination-bar :deep(.btn-prev),
+.pagination-bar :deep(.btn-next) {
+  background: var(--ink) !important;
+  color: var(--muted) !important;
+  border: 1px solid var(--wire) !important;
+  font-size: 12px;
+  font-weight: 600;
+}
+.pagination-bar :deep(.el-pager li.is-active) {
+  background: var(--ember) !important;
+  color: #fff !important;
+  border-color: var(--ember) !important;
+}
+.pagination-bar :deep(.el-pagination__total),
+.pagination-bar :deep(.el-pagination__sizes .el-select .el-input__wrapper) {
+  color: var(--ash);
+  background: var(--ink);
+  box-shadow: 0 0 0 1px var(--wire) inset;
+}
+.pagination-bar :deep(.el-pagination__jump) { color: var(--ash); }
+.pagination-bar :deep(.el-pagination__jump .el-input__inner) {
+  background: var(--ink);
+  color: var(--bone);
+  border-color: var(--wire);
+}
 
 /* Responsive */
 @media (max-width: 768px) {

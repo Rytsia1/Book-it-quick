@@ -23,6 +23,38 @@ public class BillService {
         return billMapper.findBillsByUserId(userId);
     }
 
+    /**
+     * Paginated read used by {@code GET /api/bills/page}. The
+     * {@link com.DTMK.Online.Bookkeeping.Website.Project.dto.PageResult}
+     * envelope is what the frontend's {@code <el-pagination>} consumes.
+     * <p>
+     * Defensive bounds: {@code size} is clamped to {@code [1, 100]} so a
+     * malicious or buggy client cannot bypass pagination by asking for
+     * 10_000 rows per page. {@code page} is clamped to a minimum of 1.
+     */
+    public com.DTMK.Online.Bookkeeping.Website.Project.dto.PageResult<Bill> getBillsPage(
+            Integer userId, Integer type, int page, int size) {
+        int safeSize = Math.min(Math.max(1, size), 100);
+        int safePage = Math.max(1, page);
+        int offset   = (safePage - 1) * safeSize;
+        java.util.List<Bill> items = billMapper.findBillsByPage(userId, type, offset, safeSize);
+        long total = billMapper.countBillsByPage(userId, type);
+        return new com.DTMK.Online.Bookkeeping.Website.Project.dto.PageResult<>(items, total, safePage, safeSize);
+    }
+
+    /**
+     * Returns the per-type totals used by the filter-tab badges in
+     * {@code Bills.vue} so the counts stay accurate regardless of which
+     * page is currently being displayed.
+     */
+    public java.util.Map<String, Long> getBillCounts(Integer userId) {
+        java.util.Map<String, Long> counts = new java.util.HashMap<>();
+        counts.put("all",     billMapper.countAllBills(userId));
+        counts.put("income",  billMapper.countIncomeBills(userId));
+        counts.put("expense", billMapper.countExpenseBills(userId));
+        return counts;
+    }
+
     public String addBill(Bill bill) {
         billMapper.insertBill(bill);
         return "Success: Financial record added successfully!";

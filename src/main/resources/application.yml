@@ -1,6 +1,18 @@
 spring:
   application:
     name: Online-Bookkeeping-Website-Project
+  mvc:
+    # Required for GlobalExceptionHandler.handleNotFound to fire.
+    # By default Spring forwards unmapped URLs to /error (which returns 404 via
+    # the Whitelabel page) instead of throwing NoHandlerFoundException, so the
+    # @ExceptionHandler would never be reached.
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      # Don't map /** to the static resource handler, otherwise the request
+      # never reaches DispatcherServlet and NoHandlerFoundException can't be
+      # thrown for unknown paths.
+      add-mappings: false
   datasource:
     url: jdbc:mysql://localhost:3306/db_bookkeeping?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Jakarta
     username: root

@@ -19,6 +19,9 @@
       <router-link to="/bills" class="nav-item" active-class="nav-item--active">
         Bills
       </router-link>
+      <router-link to="/budget" class="nav-item" active-class="nav-item--active">
+        Budget
+      </router-link>
       <router-link to="/analytics" class="nav-item" active-class="nav-item--active">
         Analytics
       </router-link>
