@@ -597,8 +597,21 @@ onMounted(async () => {
 
 .cat-card__actions {
   display: flex;
+  align-items: center;
   gap: 4px;
   flex-shrink: 0;
+  max-width: 0;            /* claim no flex space when hidden */
+  opacity: 0;
+  transform: translateX(10px);
+  overflow: hidden;        /* clip the slid-out buttons cleanly */
+  transition: max-width 0.2s ease, opacity 0.18s ease, transform 0.2s ease;
+}
+
+.cat-card:hover .cat-card__actions,
+.cat-card:focus-within .cat-card__actions {
+  max-width: 80px;         /* enough for two 28px buttons + 4px gap + buffer */
+  opacity: 1;
+  transform: translateX(0);
 }
 
 /* ── Action buttons ── */
