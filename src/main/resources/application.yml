@@ -9,6 +9,10 @@ spring:
   jackson:
     serialization:
       write-dates-as-timestamps: false  # LocalDate → "2026-07-16", bukan array [2026,7,16]
+  sql:
+    init:
+      mode: always  # Jalankan src/main/resources/schema.sql saat startup (idempotent)
+      continue-on-error: true  # Abaikan error DDL minor (mis. kolom yang sudah ada) agar app tetap boot
 
 server:
   port: 8080

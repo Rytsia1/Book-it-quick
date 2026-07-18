@@ -89,59 +89,95 @@ export const getCategoryNamesForType = (type) => {
 }
 
 /**
+ * Build a descriptive Error from an axios error so the caller can show the
+ * real server message (e.g. "Table 'db_bookkeeping.t_category' doesn't exist"
+ * or "Duplicate entry") instead of a generic "Failed".
+ */
+function buildError(action, e) {
+  const serverMsg = e?.response?.data?.message || e?.response?.data?.error
+  const status    = e?.response?.status
+  const detail    = serverMsg || e?.message || 'Unknown error'
+  const full      = status ? `Failed to ${action} category (HTTP ${status}): ${detail}` : `Failed to ${action} category: ${detail}`
+  const err       = new Error(full)
+  err.cause      = e
+  err.status     = status
+  err.serverMsg  = serverMsg
+  return err
+}
+
+/**
  * Create a new custom category through the API and update the local cache.
- * Returns the created Category on success, or null on failure.
+ * Throws on failure so the UI can show the real error.
  */
 export const createCategory = async (userId, type, name) => {
   const trimmed = (name || '').trim()
-  if (!trimmed) return null
+  if (!trimmed) throw new Error('Category name cannot be empty')
+  let created
   try {
-    const created = await request.post('/categories', {
+    created = await request.post('/categories', {
       userId,
       type,
       name: trimmed,
     })
-    // Refresh the cache so the new category shows up everywhere.
-    await fetchCategories(userId, true)
-    return created
+    console.log('[createCategory] backend response:', created)
   } catch (e) {
-    console.error('Failed to create category', e)
-    return null
+    console.error('[createCategory] backend threw:', e)
+    throw buildError('create', e)
   }
+  // Always force-refresh the cache from the server, regardless of whether the
+  // create response had an `id`. This way, even if the backend response shape
+  // is slightly different, the new category is guaranteed to appear in the
+  // grid on the next render.
+  try {
+    await fetchCategories(userId, true)
+    console.log('[createCategory] cache refreshed, total now:', categories.value.length)
+  } catch (e) {
+    console.warn('Category was created but the cache refresh failed:', e)
+  }
+  return created
 }
 
 /**
  * Update an existing custom category through the API and refresh the cache.
+ * Throws on failure so the UI can show the real error.
  */
 export const updateCategory = async (userId, category) => {
-  if (!category || !category.id) return null
+  if (!category || !category.id) throw new Error('Cannot update a category without an id')
+  let updated
   try {
-    const updated = await request.put(`/categories/${category.id}`, {
+    updated = await request.put(`/categories/${category.id}`, {
       ...category,
       userId,
     })
-    await fetchCategories(userId, true)
-    return updated
   } catch (e) {
-    console.error('Failed to update category', e)
-    return null
+    throw buildError('update', e)
   }
+  try {
+    await fetchCategories(userId, true)
+  } catch (e) {
+    console.warn('Category was updated but the cache refresh failed:', e)
+  }
+  return updated
 }
 
 /**
  * Delete a custom category through the API and refresh the cache.
+ * Throws on failure so the UI can show the real error.
  * Note: historical bills that used the category name are kept untouched
  * (the bill's `category` is a string column, not a foreign key).
  */
 export const deleteCategory = async (userId, categoryId) => {
   try {
     await request.delete(`/categories/${categoryId}`, { params: { userId } })
-    await fetchCategories(userId, true)
-    return true
   } catch (e) {
-    console.error('Failed to delete category', e)
-    return false
+    throw buildError('delete', e)
   }
+  try {
+    await fetchCategories(userId, true)
+  } catch (e) {
+    console.warn('Category was deleted but the cache refresh failed:', e)
+  }
+  return true
 }
 
 export const useCategories = () => ({

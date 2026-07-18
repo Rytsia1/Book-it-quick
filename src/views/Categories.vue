@@ -4,8 +4,8 @@
     <div class="page-header">
       <div>
         <p class="page-eyebrow">BOOKKEEPING / CATEGORIES</p>
-        <h1 class="page-title">Custom Categories</h1>
-        <p class="page-subtitle">Manage the income & expense categories that appear in the bill form.</p>
+        <h1 class="page-title">Categories</h1>
+        <p class="page-subtitle">All categories available in the bill form, including built-in defaults.</p>
       </div>
       <div class="page-header__actions">
         <button class="btn-ghost" @click="navigateToBills">
@@ -44,90 +44,56 @@
       <span>Loading categories...</span>
     </div>
 
-    <!-- Custom Categories Table -->
-    <div v-else class="table-panel">
-      <el-table
-        :data="filteredCustomCategories"
-        style="width: 100%"
-        :header-cell-style="tableHeaderStyle"
-        :cell-style="tableCellStyle"
+    <!--
+      Single unified grid that shows both:
+        - the system defaults (read-only, no edit/delete buttons)
+        - the user's custom categories (full CRUD)
+      Each card is just an icon + name + actions, like a chip / tile.
+    -->
+    <div v-else class="card-grid">
+      <div
+        v-for="item in visibleItems"
+        :key="item.key"
+        :class="['cat-card', item.isDefault ? 'cat-card--default' : 'cat-card--custom', `cat-card--${activeType === 1 ? 'income' : 'expense'}`]"
       >
-        <el-table-column prop="name" label="CATEGORY NAME" min-width="200">
-          <template #default="{ row }">
-            <span class="category-name">
-              <span :class="['category-tag', row.type === 1 ? 'category-tag--income' : 'category-tag--expense']">
-                {{ row.name }}
-              </span>
-            </span>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="TYPE" width="140">
-          <template #default="{ row }">
-            <span :class="['badge', row.type === 1 ? 'badge--income' : 'badge--expense']">
-              {{ row.type === 1 ? 'INCOME' : 'EXPENSE' }}
-            </span>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="CREATED" width="180">
-          <template #default="{ row }">
-            <span class="date-cell">{{ formatDate(row.createdAt) }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="ACTIONS" width="120" fixed="right">
-          <template #default="{ row }">
-            <div class="actions-cell">
-              <button class="icon-btn icon-btn--edit" @click="openEditDialog(row)" title="Edit">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                  <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                </svg>
-              </button>
-              <button class="icon-btn icon-btn--delete" @click="handleDelete(row)" title="Delete">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6"/>
-                  <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-                </svg>
-              </button>
-            </div>
-          </template>
-        </el-table-column>
-
-        <template #empty>
-          <div class="empty-state">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--ash)" stroke-width="1.5">
-              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-              <line x1="7" y1="7" x2="7.01" y2="7"/>
+        <div class="cat-card__icon">
+          <svg v-if="activeType === 1" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="19" x2="12" y2="5"/>
+            <polyline points="5 12 12 5 19 12"/>
+          </svg>
+          <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <polyline points="19 12 12 19 5 12"/>
+          </svg>
+        </div>
+        <div class="cat-card__body">
+          <span class="cat-card__name">{{ item.name }}</span>
+          <span class="cat-card__tag">{{ item.isDefault ? 'DEFAULT' : 'CUSTOM' }}</span>
+        </div>
+        <div v-if="!item.isDefault" class="cat-card__actions">
+          <button class="icon-btn icon-btn--edit" @click="openEditDialog(item)" title="Edit">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
-            <p>No custom categories yet.</p>
-            <p class="empty-sub">Click <strong>ADD CATEGORY</strong> to create your first one.</p>
-          </div>
-        </template>
-      </el-table>
-    </div>
-
-    <!-- Default Categories Info Box -->
-    <div class="info-box">
-      <div class="info-box__icon">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="16" x2="12" y2="12"/>
-          <line x1="12" y1="8" x2="12.01" y2="8"/>
-        </svg>
+          </button>
+          <button class="icon-btn icon-btn--delete" @click="handleDelete(item)" title="Delete">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+            </svg>
+          </button>
+        </div>
       </div>
-      <div class="info-box__body">
-        <strong>Default categories</strong>
-        <p>
-          In addition to your custom categories, every user can also pick from these built-in defaults:
-          <span class="info-box__list">
-            <span v-for="(cat, i) in defaultsForActiveType" :key="`d-${i}`">
-              <span :class="['mini-tag', activeType === 1 ? 'mini-tag--income' : 'mini-tag--expense']">{{ cat }}</span>
-              <span v-if="i < defaultsForActiveType.length - 1" class="mini-sep">·</span>
-            </span>
-          </span>
-        </p>
+
+      <!-- Empty state -->
+      <div v-if="visibleItems.length === 0" class="empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--ash)" stroke-width="1.5">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+          <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
+        <p>No categories in this section yet.</p>
+        <p class="empty-sub">Click <strong>ADD CATEGORY</strong> to create your first one.</p>
       </div>
     </div>
 
@@ -200,14 +166,27 @@ const createEmptyForm = () => ({
 const formData = ref(createEmptyForm())
 
 const formRules = {
-  type: [{ required: true, message: 'Please select a type', trigger: 'change' }],
+  // Custom validator (not `required: true`) because the type is a number
+  // (0 = expense, 1 = income) and `required` treats `0` as falsy and would
+  // always reject the field.
+  type: [
+    {
+      validator: (rule, value, callback) => {
+        if (value !== 0 && value !== 1) {
+          return callback(new Error('Please select a type'))
+        }
+        callback()
+      },
+      trigger: 'change',
+    },
+  ],
   name: [
     { required: true, message: 'Category name is required', trigger: 'blur' },
     { min: 2, max: 64, message: 'Name must be 2-64 characters', trigger: 'blur' },
     {
       validator: (rule, value, callback) => {
         if (!value) return callback()
-        const trimmed = value.trim()
+        const trimmed = String(value).trim()
         if (trimmed.length < 2) {
           return callback(new Error('Name must be at least 2 characters'))
         }
@@ -255,42 +234,39 @@ const typeTabs = [
   { label: 'INCOME',  value: 1 },
 ]
 
-// Show only the custom (user-defined) categories in the table.
-// Default categories are shown in the info box below.
-const filteredCustomCategories = computed(() => {
-  return categoriesRef.value
+/**
+ * Unified list shown in the grid: system defaults first (read-only),
+ * then the user's custom categories. Everything is sorted alphabetically.
+ */
+const visibleItems = computed(() => {
+  const defaults = (DEFAULT_CATEGORIES[activeType.value] ?? []).map(name => ({
+    key:        `default-${name}`,
+    name,
+    isDefault:  true,
+    id:         null,
+    type:       activeType.value,
+  }))
+  const customs = categoriesRef.value
     .filter(c => c.type === activeType.value)
-    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    .map(c => ({
+      key:        `custom-${c.id}`,
+      name:       c.name,
+      isDefault:  false,
+      id:         c.id,
+      type:       c.type,
+      createdAt:  c.createdAt,
+    }))
+  // Sort each group alphabetically, then concatenate (defaults first).
+  defaults.sort((a, b) => a.name.localeCompare(b.name))
+  customs.sort((a, b) => a.name.localeCompare(b.name))
+  return [...defaults, ...customs]
 })
 
 const getCountForType = (type) => {
-  return categoriesRef.value.filter(c => c.type === type).length
+  const defaultCount = (DEFAULT_CATEGORIES[type] ?? []).length
+  const customCount  = categoriesRef.value.filter(c => c.type === type).length
+  return defaultCount + customCount
 }
-
-const defaultsForActiveType = computed(() => DEFAULT_CATEGORIES[activeType.value] ?? [])
-
-const tableHeaderStyle = {
-  background: 'var(--ink)', color: 'var(--ash)',
-  borderBottom: '1px solid var(--wire)',
-  fontSize: '11px', fontWeight: '600', letterSpacing: '1px',
-}
-const tableCellStyle = {
-  background: 'var(--graphite)', color: 'var(--bone)',
-  borderBottom: '1px solid var(--wire)', fontSize: '13px',
-}
-
-const formatDate = (value) => {
-  if (!value) return '—'
-  try {
-    return new Date(value).toLocaleDateString('en-US', {
-      year: 'numeric', month: 'short', day: '2-digit',
-    })
-  } catch (e) {
-    return value
-  }
-}
-
-const navigateToBills = () => router.push('/bills')
 
 const openCreateDialog = () => {
   dialogMode.value = 'create'
@@ -299,9 +275,10 @@ const openCreateDialog = () => {
   dialogVisible.value = true
 }
 
-const openEditDialog = (row) => {
+const openEditDialog = (item) => {
+  if (item.isDefault) return            // built-ins can't be edited
   dialogMode.value = 'edit'
-  formData.value   = { id: row.id, type: row.type, name: row.name }
+  formData.value   = { id: item.id, type: item.type, name: item.name }
   dialogVisible.value = true
 }
 
@@ -332,39 +309,42 @@ const handleSubmit = async () => {
       type: formData.value.type,
     }
     if (dialogMode.value === 'create') {
+      // createCategory already calls fetchCategories(userId, true) on
+      // success, so the local cache is up-to-date by the time we get here.
       const created = await createCategory(userId, payload.type, payload.name)
-      if (created) {
-        ElMessage.success(`Category "${created.name}" created`)
-      } else {
-        ElMessage.error('Failed to create category')
-        return
-      }
+      const newName = (created && created.name) || payload.name
+      ElMessage.success(`Category "${newName}" created`)
+      // Defensive: also trigger a manual refetch in case the cache inside
+      // createCategory didn't pick up the new row (e.g. a race condition).
+      await fetchCategories(userId, true)
+      dialogVisible.value = false
     } else {
       const updated = await updateCategory(userId, {
         id:   formData.value.id,
         type: payload.type,
         name: payload.name,
       })
-      if (updated) {
-        ElMessage.success(`Category "${updated.name}" updated`)
-      } else {
-        ElMessage.error('Failed to update category')
-        return
-      }
+      const updName = (updated && updated.name) || payload.name
+      ElMessage.success(`Category "${updName}" updated`)
+      await fetchCategories(userId, true)
+      dialogVisible.value = false
     }
-    dialogVisible.value = false
   } catch (e) {
-    const serverMsg = e?.response?.data?.message || e?.message || 'Failed to save category'
-    ElMessage.error(serverMsg)
+    // createCategory / updateCategory now throw an Error whose .message
+    // contains the real server-side message (e.g. "Table 'db_bookkeeping.t_category'
+    // doesn't exist", "Duplicate entry", etc.). Surface that to the user.
+    console.error('handleSubmit error:', e)
+    const serverMsg = e?.serverMsg || e?.response?.data?.message || e?.message || 'Failed to save category'
+    ElMessage.error(serverMsg, { duration: 6000, showClose: true })
   } finally {
     saving.value = false
   }
 }
 
-const handleDelete = (row) => {
-  if (!row || !row.id) return
+const handleDelete = (item) => {
+  if (!item || item.isDefault || !item.id) return
   ElMessageBox.confirm(
-    `Delete the custom category "${row.name}"? Existing bills that use this name will not be affected.`,
+    `Delete the custom category "${item.name}"? Existing bills that use this name will not be affected.`,
     'Delete category',
     {
       confirmButtonText: 'DELETE',
@@ -377,11 +357,19 @@ const handleDelete = (row) => {
       ElMessage.error('Session expired. Please log in again.')
       return
     }
-    const ok = await deleteCategory(userId, row.id)
-    if (ok) ElMessage.success('Category deleted')
-    else    ElMessage.error('Failed to delete category')
+    try {
+      const ok = await deleteCategory(userId, item.id)
+      if (ok) ElMessage.success('Category deleted')
+    } catch (e) {
+      // deleteCategory now throws on failure, so we get the real error here.
+      console.error('handleDelete error:', e)
+      const serverMsg = e?.serverMsg || e?.response?.data?.message || e?.message || 'Failed to delete category'
+      ElMessage.error(serverMsg, { duration: 6000, showClose: true })
+    }
   }).catch(() => {})
 }
+
+const navigateToBills = () => router.push('/bills')
 
 onMounted(async () => {
   const userId = localStorage.getItem('userId')
@@ -399,7 +387,7 @@ onMounted(async () => {
 <style scoped>
 .page {
   padding: 28px 32px;
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
   min-height: 100vh;
 }
@@ -478,7 +466,7 @@ onMounted(async () => {
   display: flex;
   align-items: stretch;
   gap: 0;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   border-bottom: 1px solid var(--wire);
 }
 
@@ -539,122 +527,79 @@ onMounted(async () => {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Table Panel ── */
-.table-panel {
+/* ── Card Grid ── */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.cat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
   background: var(--graphite);
   border: 1px solid var(--wire);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 20px;
+  border-radius: 4px;
+  transition: all 0.15s;
+  position: relative;
 }
-.table-panel :deep(.el-table) { border-radius: 0 !important; }
-
-/* Category names */
-.category-name { display: inline-flex; }
-.category-tag {
-  display: inline-block;
-  padding: 3px 10px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-  border-radius: 2px;
-  text-transform: uppercase;
-}
-.category-tag--income  { background: rgba(34, 197, 94, 0.12); color: var(--green); }
-.category-tag--expense { background: rgba(239, 68, 68, 0.12); color: var(--red); }
-
-.badge {
-  display: inline-block;
-  padding: 2px 8px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  border-radius: 2px;
-}
-.badge--income  { background: rgba(34, 197, 94, 0.1);  color: var(--green); }
-.badge--expense { background: rgba(239, 68, 68, 0.1);  color: var(--red); }
-
-.date-cell {
-  font-size: 12px;
-  color: var(--muted);
-  font-family: var(--font-mono);
-}
-
-/* ── Empty state inside the table ── */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 50px 20px;
-  color: var(--ash);
-  font-size: 13px;
-  text-align: center;
-}
-.empty-state p { margin: 0; }
-.empty-sub { font-size: 12px; color: var(--muted); }
-.empty-sub strong { color: var(--ember); }
-
-/* ── Info box (default categories) ── */
-.info-box {
-  display: flex;
-  gap: 14px;
-  padding: 14px 18px;
+.cat-card:hover {
+  border-color: var(--muted);
   background: var(--slate);
-  border: 1px solid var(--wire);
-  border-left: 3px solid var(--ember);
-  border-radius: 3px;
-  color: var(--muted);
 }
-.info-box__icon {
+
+.cat-card__icon {
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(240, 90, 20, 0.1);
-  color: var(--ember);
-  border-radius: 3px;
+  border-radius: 4px;
 }
-.info-box__body { flex: 1; min-width: 0; }
-.info-box__body strong {
-  display: block;
-  font-size: 11px;
-  letter-spacing: 1px;
+.cat-card--income .cat-card__icon {
+  background: rgba(34, 197, 94, 0.12);
+  color: var(--green);
+}
+.cat-card--expense .cat-card__icon {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--red);
+}
+
+.cat-card__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.cat-card__name {
+  font-size: 14px;
+  font-weight: 600;
   color: var(--white);
-  margin-bottom: 6px;
+  font-family: var(--font-body);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.info-box__body p {
-  font-size: 12px;
-  line-height: 1.7;
-  margin: 0;
-}
-.info-box__list {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-left: 4px;
-}
-.mini-tag {
-  display: inline-block;
-  padding: 1px 8px;
-  font-size: 10px;
+.cat-card__tag {
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.6px;
-  border-radius: 2px;
+  letter-spacing: 0.8px;
+  color: var(--muted);
   text-transform: uppercase;
 }
-.mini-tag--income  { background: rgba(34, 197, 94, 0.1);  color: var(--green); }
-.mini-tag--expense { background: rgba(239, 68, 68, 0.1);  color: var(--red); }
-.mini-sep {
-  color: var(--ash);
-  margin: 0 2px;
+.cat-card--custom .cat-card__tag { color: var(--ember); }
+
+.cat-card__actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 /* ── Action buttons ── */
-.actions-cell { display: flex; gap: 6px; }
-
 .icon-btn {
   width: 28px;
   height: 28px;
@@ -672,6 +617,22 @@ onMounted(async () => {
 .icon-btn--delete { color: var(--ash); }
 .icon-btn--delete:hover { border-color: var(--red); color: var(--red); background: rgba(239, 68, 68, 0.06); }
 
+/* ── Empty state inside the grid ── */
+.empty-state {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 60px 20px;
+  color: var(--ash);
+  font-size: 13px;
+  text-align: center;
+}
+.empty-state p { margin: 0; }
+.empty-sub { font-size: 12px; color: var(--muted); }
+.empty-sub strong { color: var(--ember); }
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .page { padding: 16px; }
@@ -680,7 +641,10 @@ onMounted(async () => {
   .page-header__actions { width: 100%; }
   .page-header__actions .btn-ghost,
   .page-header__actions .btn-primary { flex: 1; justify-content: center; }
-  .info-box { flex-direction: column; }
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
 }
-@media (max-width: 480px) { .page { padding: 12px; } }
+@media (max-width: 480px) {
+  .page { padding: 12px; }
+  .card-grid { grid-template-columns: 1fr; }
+}
 </style>
