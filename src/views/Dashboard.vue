@@ -305,13 +305,35 @@ const saveBudget = async () => {
   try {
     budgetSaving.value = true
     const userId = localStorage.getItem('userId')
-    await request.put('/budget', { userId: Number(userId), monthlyBudget: budgetInput.value })
-    ElMessage.success('Budget saved successfully')
+    // Guard: ensure userId exists, otherwise backend will fail with 500.
+    if (!userId || userId === 'null' || userId === 'undefined') {
+      ElMessage.error('Session expired. Please log in again.')
+      router.push('/login')
+      return
+    }
+    // Guard: ensure the budget value is a valid non-negative number.
+    const budgetValue = Number(budgetInput.value)
+    if (Number.isNaN(budgetValue) || budgetValue < 0) {
+      ElMessage.error('Please enter a valid budget amount (0 or greater)')
+      return
+    }
+    const res = await request.put('/budget', {
+      userId: Number(userId),
+      monthlyBudget: budgetValue
+    })
+    if (res && res.message) {
+      ElMessage.success(res.message)
+    } else {
+      ElMessage.success('Budget saved successfully')
+    }
     budgetDialogVisible.value = false
     alertDismissed.value = false
     await fetchMonthlySummary()
   } catch (e) {
-    ElMessage.error('Failed to save budget')
+    // Show the actual server-side error message to make debugging easier.
+    const serverMsg = e?.response?.data?.message || e?.message || 'Failed to save budget'
+    console.error('saveBudget error:', e)
+    ElMessage.error(serverMsg)
   } finally {
     budgetSaving.value = false
   }
