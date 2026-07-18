@@ -228,9 +228,10 @@
             <span class="tx-month-short">{{ formatMonthShort(tx.billDate) }}</span>
           </div>
           <div class="tx-info">
-            <span class="tx-desc">{{ tx.description || '(No description)' }}</span>
             <span class="tx-category-tag">{{ tx.category }}</span>
+            <span class="tx-desc">{{ tx.description || '(No description)' }}</span>
           </div>
+
           <span class="tx-amount" :class="txAmountClass(tx)">
             {{ txAmountPrefix(tx) }}{{ formatCurrency(tx.amount) }}
           </span>
@@ -377,7 +378,7 @@ const drawerSize = computed(() => window.innerWidth <= 600 ? '100%' : '460px')
 
 const formatCurrency = (amount) => {
   if (amount == null) return '$ 0'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount)
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
 }
 
 const formatDay = (dateStr) => {

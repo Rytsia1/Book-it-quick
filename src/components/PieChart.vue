@@ -44,28 +44,9 @@ let chartInstance = null
 // Resolve the active palette, falling back to the default if none was provided.
 const activePalette = () => (props.palette && props.palette.length ? props.palette : DEFAULT_PALETTE)
 
-const formatCurrency = (v) => {
-  const n = Number(v) || 0
-  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`
-  return `$${n.toFixed(0)}`
-}
-
 const buildOption = (data) => {
   const hasData = data && data.length > 0
   const palette = activePalette()
-  const total = hasData ? data.reduce((sum, d) => sum + (Number(d.value) || 0), 0) : 0
-
-  // Build legend entries with "Name — XX%" text so users can read proportions at a glance.
-  const legendData = hasData
-    ? data.map((d, i) => {
-        const pct = total > 0 ? Math.round((Number(d.value) || 0) / total * 100) : 0
-        return {
-          name: `${d.name}  ·  ${pct}%`,
-          // ECharts uses the legend `name` field to map colors to the series data.
-          icon: 'roundRect',
-        }
-      })
-    : [{ name: 'No data' }]
 
   return {
     backgroundColor: 'transparent',
@@ -75,71 +56,68 @@ const buildOption = (data) => {
       borderColor: '#232323',
       textStyle: { color: '#DEDEDE', fontSize: 13 },
       formatter: (p) => {
-        const val = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(p.value)
+        const val = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(p.value)
         return `<b>${p.name}</b><br/>${val} <span style="color:#94a3b8">(${p.percent.toFixed(1)}%)</span>`
       },
     },
-    legend: {
-      orient: 'vertical',
-      right: '2%',
-      top: 'center',
-      data: legendData,
-      textStyle: {
-        color: '#DEDEDE',
-        fontSize: 12,
-        rich: {},
-      },
-      itemWidth: 12,
-      itemHeight: 12,
-      itemGap: 14,
-      formatter: (name) => {
-        // Already includes "Name  ·  XX%" in `name`; just return as-is.
-        return name
-      },
-    },
+    // No right-side legend: we now show category + percentage as outside labels
+    // with connecting lines. ECharts' built-in algorithm arranges them so they
+    // never overlap, regardless of how many categories there are.
+    legend: { show: false },
     series: [
       {
         name: 'Category',
         type: 'pie',
-        radius: ['42%', '68%'],
-        center: ['40%', '50%'],
+        // Slightly smaller inner radius makes room for the outside label lines
+        // without the donut becoming too thin.
+        radius: ['38%', '60%'],
+        center: ['50%', '50%'],
         avoidLabelOverlap: true,
+        minShowLabelAngle: 4, // hide the label for slices smaller than 4°
         color: palette,
         itemStyle: {
           borderRadius: 3,
           borderColor: '#090909',
           borderWidth: 2,
         },
-        // Always-visible labels: show category name + percentage on the slice.
+        // Outside labels with connecting lines. ECharts' layout engine
+        // automatically arranges them (left vs right, two columns) to prevent
+        // any overlap — even with many categories.
         label: {
           show: true,
-          position: 'inside',
+          position: 'outside',
+          alignTo: 'labelLine',
+          bleedMargin: 8,
           formatter: (p) => {
             const pct = (p.percent ?? 0).toFixed(0) + '%'
-            // Shorten the category name if it's long
-            const name = p.name.length > 10 ? p.name.slice(0, 9) + '…' : p.name
-            return `${name}\n${pct}`
+            return `${p.name}\n${pct}`
           },
-          fontSize: 11,
-          fontWeight: 600,
-          color: '#0a0a0a',
-          lineHeight: 14,
-          textShadowColor: 'rgba(255, 255, 255, 0.55)',
-          textShadowBlur: 3,
+          fontSize: 12,
+          fontWeight: 500,
+          color: '#e2e8f0',
+          lineHeight: 15,
+          textBorderColor: '#13131b',
+          textBorderWidth: 2,
         },
-        labelLine: { show: false },
+        labelLine: {
+          show: true,
+          length: 10,
+          length2: 14,
+          lineStyle: {
+            color: '#64748b',
+            width: 1.2,
+          },
+        },
         emphasis: {
           itemStyle: {
-            shadowBlur: 12,
-            shadowColor: 'rgba(240,90,20,0.35)',
-          },
-          label: {
-            show: true,
-            fontSize: 12,
-            fontWeight: 'bold',
-            color: '#0a0a0a',
+            shadowBlur: 14,
+            shadowColor: 'rgba(240,90,20,0.45)',
           },
           scaleSize: 6,
+          label: {
+            fontSize: 13,
+            fontWeight: 600,
+          },
         },
         cursor: props.clickable ? 'pointer' : 'default',
         data: data.length

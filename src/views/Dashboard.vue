@@ -289,7 +289,7 @@ const lastUpdate = computed(() => new Date().toLocaleTimeString('en-US', { hour:
 
 const formatCurrencyUSD = (amount) => {
   if (amount == null) return '$ 0'
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount)
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
 }
 
 const dismissAlert         = () => { alertDismissed.value = true }

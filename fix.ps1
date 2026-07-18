@@ -1,1 +1,0 @@
-=" d:\Folder dio\Porto\Bookkeeping\Book-it-quick\src\views\Analytics.vue\; =[System.IO.File]::ReadAllLines(); =@(); for(=0; -lt .Length;++){ if( -ge 210 -and -le 212){ continue } +=[] }; [System.IO.File]::WriteAllLines(,); Write-Host (\New length: \ + .Length)

@@ -46,7 +46,7 @@ const buildOption = (data) => {
         let html = `<div style="margin-bottom:6px;font-weight:600;color:#f1f5f9">${params[0].axisValue}</div>`
         params.forEach(p => {
           const val = new Intl.NumberFormat('en-US', {
-            style: 'currency', currency: 'USD', minimumFractionDigits: 0,
+            style: 'currency', currency: 'USD', minimumFractionDigits: 2,
           }).format(p.value)
           html += `<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
             <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color}"></span>
