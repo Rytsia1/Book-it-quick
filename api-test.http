@@ -1,0 +1,49 @@
+### Tes Register (Klik tombol panah hijau di sebelah kiri baris ini)
+POST http://localhost:8080/api/user/register?username=dios&password=123
+
+### Tes Login (Klik tombol panah hijau di sebelah kiri baris ini)
+POST http://localhost:8080/api/user/login?username=dios&password=123
+
+### 1. Tambah Catatan Pengeluaran Baru
+POST http://localhost:8080/api/bill/add
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "amount": 15000.00,
+  "type": 0,
+  "category": "Makanan",
+  "description": "Mie Gacoan Cabang Manyar Sabrangan",
+  "billDate": "2026-07-10"
+}
+
+### 2. Lihat Daftar Tagihan (Berdasarkan ID User)
+GET http://localhost:8080/api/bill/list?userId=1
+
+### 3. Hapus Tagihan (Ganti angka 1 dengan ID tagihan yang ingin dihapus)
+DELETE http://localhost:8080/api/bill/delete?id=1
+
+### Lihat Statistik Bulan Juli 2026
+GET http://localhost:8080/api/bill/stats/monthly?userId=1&month=7&year=2026
+
+### ── FITUR BUDGET ──
+
+### Lihat ringkasan bulanan (dengan info budget)
+GET http://localhost:8080/api/stats/summary?userId=1&month=7&year=2026
+
+### Simpan / Update target anggaran bulanan
+PUT http://localhost:8080/api/budget
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "monthlyBudget": 3000000
+}
+
+### Ambil anggaran tersimpan milik user
+GET http://localhost:8080/api/budget/1
+
+### ── DETAIL CHART INTERAKTIF ──
+
+### Ambil daftar transaksi per kategori (untuk klik pie chart)
+GET http://localhost:8080/api/stats/transactions?userId=1&category=Makanan&month=7&year=2026

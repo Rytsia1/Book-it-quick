@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: Online-Bookkeeping-Website-Project
+  datasource:
+    url: jdbc:mysql://localhost:3306/db_bookkeeping?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Jakarta
+    username: root
+    password: Shizukusan1412
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false  # LocalDate → "2026-07-16", bukan array [2026,7,16]
+
+server:
+  port: 8080
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
