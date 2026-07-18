@@ -32,7 +32,7 @@
         <button class="btn-ghost" @click="navigateToAnalytics">
           Analytics
         </button>
-        <button class="btn-primary" @click="navigateToBills">
+        <button class="btn-primary" @click="openBillDialog">
           + ADD BILL
         </button>
       </div>
@@ -72,7 +72,7 @@
       <section class="panel">
         <div class="panel__header">
           <span class="panel__label">RECENT TRANSACTIONS</span>
-          <button class="btn-link" @click="navigateToBills">VIEW ALL →</button>
+          <button class="btn-link" @click="openBillDialog">VIEW ALL →</button>
         </div>
 
         <el-table
@@ -176,7 +176,7 @@
             <span class="panel__label">QUICK ACTIONS</span>
           </div>
           <div class="action-list">
-            <button class="action-item" @click="navigateToBills">
+            <button class="action-item" @click="openBillDialog">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
               </svg>
@@ -225,6 +225,9 @@
       </template>
     </el-dialog>
 
+    <!-- Quick Add Bill dialog (in-page, no navigation needed) -->
+    <BillDialog v-model:visible="billDialogVisible" @success="onBillDialogSuccess" />
+
   </div>
 </template>
 
@@ -233,6 +236,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import BillDialog from '@/components/BillDialog.vue'
 
 const router = useRouter()
 
@@ -291,6 +295,10 @@ const formatCurrencyUSD = (amount) => {
   if (amount == null) return '$ 0'
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
 }
+
+const billDialogVisible    = ref(false)
+const openBillDialog        = () => { billDialogVisible.value = true }
+const onBillDialogSuccess   = () => { billDialogVisible.value = false; fetchBills(); fetchMonthlySummary() }
 
 const dismissAlert         = () => { alertDismissed.value = true }
 const navigateToBills      = () => router.push('/bills')

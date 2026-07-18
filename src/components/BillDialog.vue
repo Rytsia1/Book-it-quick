@@ -163,14 +163,20 @@ const handleSubmit = async () => {
 
     loading.value = true
 
+    const userId = Number(localStorage.getItem('userId'))
+    if (!userId) {
+      ElMessage.error('Session expired. Please log in again.')
+      return
+    }
+
     const payload = {
+      userId: userId,
       type: formData.value.type,
       category: formData.value.category,
       amount: formData.value.amount,
       date: formData.value.date,
       description: formData.value.description || ''
     }
-
     if (isEditMode.value) {
       // Update existing bill
       await request.put(`/bills/${formData.value.id}`, payload)

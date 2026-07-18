@@ -84,161 +84,34 @@
       <el-empty v-if="filteredBills.length === 0" description="No transactions found" class="empty" />
     </div>
 
-    <!-- Create/Edit Dialog -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="dialogMode === 'create' ? 'ADD NEW BILL' : 'EDIT BILL'"
-      width="500px"
-      @close="resetForm"
-    >
-      <el-form ref="formRef" :model="formData" :rules="rules" label-position="top">
-        <el-form-item label="TRANSACTION TYPE" prop="type">
-          <el-select v-model="formData.type" placeholder="Select type" size="large" style="width: 100%">
-            <el-option label="Income" :value="1" />
-            <el-option label="Expense" :value="0" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item label="CATEGORY" prop="category">
-          <!--
-            allow-create lets the user type a brand-new name in the dropdown
-            and add it as a custom category on the fly. The new value is sent
-            to the server through the normal /bills POST so it gets persisted
-            via the backend's "auto-create on unknown category" logic.
-          -->
-          <el-select
-            v-model="formData.category"
-            placeholder="Select or type a category"
-            size="large"
-            style="width: 100%"
-            filterable
-            allow-create
-            default-first-option
-            :loading="categoriesLoading"
-            @create="handleInlineCreateCategory"
-          >
-            <template #prefix>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-                <line x1="7" y1="7" x2="7.01" y2="7"/>
-              </svg>
-            </template>
-            <el-option
-              v-for="category in availableCategories"
-              :key="category"
-              :label="category"
-              :value="category"
-            />
-          </el-select>
-          <p class="form-hint">Pick an existing category or type a new one to add it as a custom category.</p>
-        </el-form-item>
-
-        <el-form-item label="AMOUNT (USD)" prop="amount">
-          <el-input-number
-            v-model="formData.amount"
-            :min="1"
-            :step="10"
-            :precision="0"
-            style="width: 100%"
-            size="large"
-          />
-        </el-form-item>
-
-        <el-form-item label="DATE" prop="billDate">
-          <el-date-picker
-            v-model="formData.billDate"
-            type="date"
-            placeholder="Select date"
-            style="width: 100%"
-            size="large"
-            value-format="YYYY-MM-DD"
-          />
-        </el-form-item>
-
-        <el-form-item label="DESCRIPTION">
-          <el-input
-            v-model="formData.description"
-            type="textarea"
-            placeholder="Add a note..."
-            :rows="3"
-            size="large"
-          />
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="dialogVisible = false">CANCEL</el-button>
-        <el-button type="primary" :loading="loading" @click="handleSubmit">
-          {{ dialogMode === 'create' ? 'ADD BILL' : 'SAVE CHANGES' }}
-        </el-button>
-      </template>
-    </el-dialog>
+    <!-- Single shared Add/Edit bill pop-up (same window used on the Dashboard too). -->
+    <BillDialog
+      v-model:visible="dialogVisible"
+      :edit-data="editTarget"
+      @success="onBillSaved"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
-import {
-  fetchCategories,
-  getCategoryNamesForType,
-  createCategory,
-  categories as categoriesRef,
-  DEFAULT_CATEGORIES,
-} from '@/utils/categories'
+import BillDialog from '@/components/BillDialog.vue'
 
 const router = useRouter()
 
-const bills             = ref([])
-const activeFilter      = ref('all')
-const dialogVisible     = ref(false)
-const dialogMode        = ref('create')
-const formRef           = ref(null)
-const loading           = ref(false)
-const categoriesLoading = ref(false)
+const bills         = ref([])
+const activeFilter  = ref('all')
+const dialogVisible = ref(false)
+const editTarget    = ref(null)  // null = create mode, object = edit mode
 
 const filters = [
   { label: 'ALL',     value: 'all' },
   { label: 'INCOME',  value: 'income' },
   { label: 'EXPENSE', value: 'expense' },
 ]
-
-const createEmptyForm = () => ({
-  type: 0,
-  category: DEFAULT_CATEGORIES[0]?.[0] ?? '',
-  amount: 1,
-  billDate: new Date().toISOString().split('T')[0],
-  description: '',
-})
-
-const formData = ref(createEmptyForm())
-
-const rules = {
-  type:     [{ required: true, message: 'Required', trigger: 'change' }],
-  category: [{ required: true, message: 'Required', trigger: 'change' }],
-  amount:   [
-    { required: true, message: 'Required', trigger: 'blur' },
-    { type: 'number', min: 1, message: 'Amount must be greater than 0', trigger: 'blur' },
-  ],
-  billDate: [{ required: true, message: 'Required', trigger: 'change' }],
-}
-
-const availableCategories = computed(() => getCategoryNamesForType(formData.value.type))
-
-// When the user switches transaction type, fall back to the first option
-// for the new type if the previously-selected category does not belong
-// to that type. (El-select with allow-create also handles this gracefully.)
-watch(
-  () => formData.value.type,
-  (type) => {
-    const list = availableCategories.value
-    if (!list.includes(formData.value.category)) {
-      formData.value.category = list[0] ?? ''
-    }
-  }
-)
 
 const tableHeaderStyle = {
   background: 'var(--ink)', color: 'var(--ash)',
@@ -272,68 +145,10 @@ const formatCurrency = (amount) => {
   }).format(amount)
 }
 
-/**
- * Returns true if the given category name is reserved for a transaction
- * type other than `currentType`. This mirrors the backend's
- * `isReservedForOtherType` / `hasCustomCategoryInOtherType` checks and
- * is used to give the user immediate feedback in the dialog.
- */
-const isReservedForOtherType = (name, currentType) => {
-  if (!name || currentType == null) return false
-  const lower  = name.trim().toLowerCase()
-  const other  = currentType === 1 ? 0 : 1
-  const fixed  = DEFAULT_CATEGORIES[other] ?? []
-  if (fixed.some(f => f.toLowerCase() === lower)) return true
-  return categoriesRef.value
-    .filter(c => c.type === other && c.name)
-    .some(c => c.name.toLowerCase() === lower)
-}
-
-/**
- * Called when the user types a brand-new value in the el-select and presses
- * Enter. We optimistically create the category on the server, so the new
- * name will show up next time the dialog opens even after a refresh.
- */
-const handleInlineCreateCategory = async (name) => {
-  const trimmed = (name || '').trim()
-  if (!trimmed) return
-  const userId = Number(localStorage.getItem('userId'))
-  if (!userId) {
-    ElMessage.error('Session expired. Please log in again.')
-    return
-  }
-  // Reject up front if the name is reserved for the opposite transaction
-  // type (e.g. trying to add "Salary" under Expenses).
-  if (isReservedForOtherType(trimmed, formData.value.type)) {
-    const section = formData.value.type === 1 ? 'expense' : 'income'
-    ElMessage.error(`"${trimmed}" is a ${section} category and cannot be added here.`)
-    formData.value.category = ''
-    return
-  }
-  categoriesLoading.value = true
-  try {
-    const created = await createCategory(userId, formData.value.type, trimmed)
-    if (created) {
-      ElMessage.success(`Category "${created.name}" added`)
-      formData.value.category = created.name
-    } else {
-      ElMessage.error('Failed to add custom category')
-    }
-  } catch (e) {
-    // Surface backend validation messages (e.g. duplicate / cross-type).
-    const serverMsg = e?.response?.data?.message || e?.message
-    if (serverMsg) ElMessage.error(serverMsg)
-    else           ElMessage.error('Failed to add custom category')
-  } finally {
-    categoriesLoading.value = false
-  }
-}
-
 const navigateToCategories = () => router.push('/categories')
 
 const fetchBills = async () => {
   try {
-    loading.value = true
     const userId = localStorage.getItem('userId')
     const data = await request.get('/bills', { params: { userId } })
     bills.value = Array.isArray(data)
@@ -341,19 +156,22 @@ const fetchBills = async () => {
       : []
   } catch (e) {
     ElMessage.error('Failed to load bills')
-  } finally { loading.value = false }
+  }
 }
 
 const handleCreate = () => {
-  dialogMode.value = 'create'
-  resetForm()
+  editTarget.value = null
   dialogVisible.value = true
 }
 
 const handleEdit = (row) => {
-  dialogMode.value = 'edit'
-  formData.value = { ...row }
+  editTarget.value = { ...row }
   dialogVisible.value = true
+}
+
+const onBillSaved = () => {
+  dialogVisible.value = false
+  fetchBills()
 }
 
 const handleDelete = (id) => {
@@ -368,43 +186,7 @@ const handleDelete = (id) => {
   }).catch(() => {})
 }
 
-const handleSubmit = async () => {
-  if (!formRef.value) return
-  try {
-    await formRef.value.validate()
-    loading.value = true
-    if (dialogMode.value === 'create') {
-      const userId = Number(localStorage.getItem('userId'))
-      await request.post('/bills', { ...formData.value, userId })
-      ElMessage.success('Bill added')
-    } else {
-      const userId = Number(localStorage.getItem('userId'))
-      await request.put(`/bills/${formData.value.id}`, { ...formData.value, userId })
-      ElMessage.success('Bill updated')
-    }
-    dialogVisible.value = false
-    fetchBills()
-  } catch (e) {
-    if (e?.message) ElMessage.error('Failed to save')
-  } finally { loading.value = false }
-}
-
-const resetForm = () => {
-  formData.value = createEmptyForm()
-  formRef.value?.clearValidate()
-}
-
-onMounted(async () => {
-  const userId = localStorage.getItem('userId')
-  if (userId) {
-    categoriesLoading.value = true
-    await fetchCategories(Number(userId))
-    categoriesLoading.value = false
-    // Make sure the default category for the default type is in range.
-    formData.value.category = getCategoryNamesForType(0)[0] ?? ''
-  }
-  fetchBills()
-})
+onMounted(() => { fetchBills() })
 </script>
 
 <style scoped>
@@ -552,14 +334,6 @@ onMounted(async () => {
 .category-name {
   color: var(--bone);
   font-size: 13px;
-}
-
-/* Hint under the el-select */
-.form-hint {
-  font-size: 11px;
-  color: var(--ash);
-  margin: 6px 0 0;
-  line-height: 1.5;
 }
 
 /* Utilities */

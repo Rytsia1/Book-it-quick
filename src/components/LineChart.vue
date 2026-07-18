@@ -39,18 +39,19 @@ const buildOption = (data) => {
     tooltip: {
       trigger: 'axis',
       backgroundColor: '#111111',
-      borderColor: '#232323',
+      borderColor: '#F05A14',
+      borderWidth: 1,
       textStyle: { color: '#DEDEDE', fontSize: 13 },
       formatter: (params) => {
         if (!params || params.length === 0) return ''
-        let html = `<div style="margin-bottom:6px;font-weight:600;color:#f1f5f9">${params[0].axisValue}</div>`
+        let html = `<div style="margin-bottom:6px;font-weight:600;color:var(--bone)">${params[0].axisValue}</div>`
         params.forEach(p => {
           const val = new Intl.NumberFormat('en-US', {
             style: 'currency', currency: 'USD', minimumFractionDigits: 2,
           }).format(p.value)
           html += `<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
             <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color}"></span>
-            <span>${p.seriesName}: <b style="color:#f1f5f9">${val}</b></span>
+            <span>${p.seriesName}: <b style="color:var(--bone)">${val}</b></span>
           </div>`
         })
         return html
@@ -58,7 +59,7 @@ const buildOption = (data) => {
     },
     legend: {
       data: ['Income', 'Expenses'],
-      textStyle: { color: '#94a3b8', fontSize: 12 },
+      textStyle: { color: '#8A8A8A', fontSize: 12 },
       icon: 'roundRect',
       itemWidth: 14,
       itemHeight: 8,
@@ -76,17 +77,17 @@ const buildOption = (data) => {
       type: 'category',
       boundaryGap: false,
       data: hasData ? dates : ['No data'],
-      axisLine: { lineStyle: { color: '#2a2a3a' } },
-      axisLabel: { color: '#64748b', fontSize: 11 },
+      axisLine: { lineStyle: { color: '#232323' } },
+      axisLabel: { color: '#8A8A8A', fontSize: 11 },
       axisTick: { show: false },
     },
     yAxis: {
       type: 'value',
       axisLine: { show: false },
       axisTick: { show: false },
-      splitLine: { lineStyle: { color: '#1e1e2e', type: 'dashed' } },
+      splitLine: { lineStyle: { color: '#232323', type: 'dashed' } },
       axisLabel: {
-        color: '#64748b',
+        color: '#8A8A8A',
         fontSize: 11,
         formatter: (v) => formatCurrencyShort(v),
       },
@@ -97,17 +98,25 @@ const buildOption = (data) => {
         type: 'line',
         smooth: true,
         symbol: 'circle',
-        symbolSize: 6,
-        showSymbol: false,
-        lineStyle: { width: 2.5, color: '#22C55E' },
-        itemStyle: { color: '#22C55E', borderColor: '#0a1a0f', borderWidth: 2 },
+        symbolSize: 8,
+        showSymbol: 'emphasis',  // show dot only when hovering the line
+        lineStyle: { width: 3, color: '#22C55E' },
+        itemStyle: { color: '#22C55E', borderColor: '#111111', borderWidth: 2 },
         emphasis: {
           focus: 'series',
-          lineStyle: { width: 3 },
-          scale: 1.6,
+          lineStyle: { width: 4 },
+          scale: 1.4,
         },
+        // Stronger, more visible gradient fill under the line.
         areaStyle: {
-          color: 'rgba(34,197,94,0.12)',
+          color: {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(34,197,94,0.45)' },
+              { offset: 1, color: 'rgba(34,197,94,0.05)' },
+            ],
+          },
         },
         data: hasData ? incomeValues : [0],
       },
@@ -116,17 +125,24 @@ const buildOption = (data) => {
         type: 'line',
         smooth: true,
         symbol: 'circle',
-        symbolSize: 6,
-        showSymbol: false,
-        lineStyle: { width: 2.5, color: '#EF4444' },
-        itemStyle: { color: '#EF4444', borderColor: '#1a0a0a', borderWidth: 2 },
+        symbolSize: 8,
+        showSymbol: 'emphasis',
+        lineStyle: { width: 3, color: '#EF4444' },
+        itemStyle: { color: '#EF4444', borderColor: '#111111', borderWidth: 2 },
         emphasis: {
           focus: 'series',
-          lineStyle: { width: 3 },
-          scale: 1.6,
+          lineStyle: { width: 4 },
+          scale: 1.4,
         },
         areaStyle: {
-          color: 'rgba(239,68,68,0.12)',
+          color: {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(239,68,68,0.45)' },
+              { offset: 1, color: 'rgba(239,68,68,0.05)' },
+            ],
+          },
         },
         data: hasData ? expenseValues : [0],
       },

@@ -12,7 +12,10 @@ import { CanvasRenderer } from 'echarts/renderers'
 echarts.use([PieChartSeries, TitleComponent, TooltipComponent, LegendComponent, CanvasRenderer])
 
 // Default fallback palette (mixed) — used when no `palette` prop is provided.
-const DEFAULT_PALETTE = ['#F05A14', '#22C55E', '#3B82F6', '#F59E0B', '#A855F7', '#EC4899', '#14B8A6', '#FF7A3D', '#6366F1', '#EF4444']
+const DEFAULT_PALETTE = [
+  '#F05A14', '#22C55E', '#3B82F6', '#F59E0B', '#A855F7',
+  '#EC4899', '#14B8A6', '#FF7A3D', '#6366F1', '#EF4444',
+]
 
 const props = defineProps({
   data: {
@@ -28,8 +31,6 @@ const props = defineProps({
     default: false,
   },
   // Optional color palette. Pass an array of hex colors to override the default.
-  // Use this to assign different palettes to e.g. income vs expense pie charts so
-  // viewers don't confuse categories across charts.
   palette: {
     type: Array,
     default: null,
@@ -45,7 +46,6 @@ let chartInstance = null
 const activePalette = () => (props.palette && props.palette.length ? props.palette : DEFAULT_PALETTE)
 
 const buildOption = (data) => {
-  const hasData = data && data.length > 0
   const palette = activePalette()
 
   return {
@@ -53,11 +53,12 @@ const buildOption = (data) => {
     tooltip: {
       trigger: 'item',
       backgroundColor: '#111111',
-      borderColor: '#232323',
+      borderColor: '#F05A14',
+      borderWidth: 1,
       textStyle: { color: '#DEDEDE', fontSize: 13 },
       formatter: (p) => {
         const val = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(p.value)
-        return `<b>${p.name}</b><br/>${val} <span style="color:#94a3b8">(${p.percent.toFixed(1)}%)</span>`
+        return `<b>${p.name}</b><br/>${val} <span style="color:var(--muted)">(${p.percent.toFixed(1)}%)</span>`
       },
     },
     // No right-side legend: we now show category + percentage as outside labels
@@ -77,7 +78,7 @@ const buildOption = (data) => {
         color: palette,
         itemStyle: {
           borderRadius: 3,
-          borderColor: '#090909',
+          borderColor: '#090909',   // dark border so slices are clearly separated
           borderWidth: 2,
         },
         // Outside labels with connecting lines. ECharts' layout engine
@@ -93,30 +94,36 @@ const buildOption = (data) => {
             return `${p.name}\n${pct}`
           },
           fontSize: 12,
-          fontWeight: 500,
-          color: '#e2e8f0',
+          fontWeight: 600,
+          color: '#DEDEDE',
           lineHeight: 15,
-          textBorderColor: '#13131b',
-          textBorderWidth: 2,
+          // Solid dark text border so the label stays readable no matter what
+          // colors appear near it on the canvas.
+          textBorderColor: '#090909',
+          textBorderWidth: 3,
         },
         labelLine: {
           show: true,
           length: 10,
           length2: 14,
           lineStyle: {
-            color: '#64748b',
-            width: 1.2,
+            // Slightly brighter than --muted so the connector line is visible
+            // against the dark card background.
+            color: '#5A5A5A',
+            width: 1.4,
           },
         },
         emphasis: {
           itemStyle: {
-            shadowBlur: 14,
-            shadowColor: 'rgba(240,90,20,0.45)',
+            shadowBlur: 18,
+            shadowColor: 'rgba(240,90,20,0.6)',
+            borderColor: '#F05A14',
+            borderWidth: 2,
           },
-          scaleSize: 6,
+          scaleSize: 8,
           label: {
             fontSize: 13,
-            fontWeight: 600,
+            fontWeight: 700,
           },
         },
         cursor: props.clickable ? 'pointer' : 'default',
