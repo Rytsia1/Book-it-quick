@@ -34,7 +34,9 @@ public class CategoryService {
     }
 
     public void deleteCategory(Integer userId, Integer categoryId) {
-        categoryMapper.deleteCategory(categoryId, userId);
+        // Soft-delete: marks the row as trashed. The mapper's WHERE
+        // clause guards against double-delete and unauthorized access.
+        categoryMapper.softDeleteCategory(categoryId, userId);
     }
 
     public boolean categoryExists(Integer userId, String name, Integer type) {

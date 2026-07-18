@@ -61,8 +61,14 @@ public class BillService {
     }
 
     public String deleteBill(Integer id) {
-        billMapper.deleteBill(id);
-        return "Success: Financial record deleted successfully!";
+        // Soft delete: marks the row as trashed. The mapper's WHERE
+        // clause ensures only live rows are affected. Returns the row
+        // count so the controller can map "not found" to a 404.
+        int updated = billMapper.softDeleteBill(id);
+        if (updated == 0) {
+            throw new IllegalArgumentException("Bill not found or already deleted");
+        }
+        return "Success: Financial record moved to trash";
     }
 
     public List<com.DTMK.Online.Bookkeeping.Website.Project.dto.CategoryStatDTO> getExpenseByCategory(Integer userId, int month, int year) {

@@ -162,10 +162,13 @@ public class BillController {
     }
 
     // DELETE /api/bills/{id}
+    // Soft delete: marks the bill as trashed. The row is never actually
+    // removed, which preserves the audit trail and lets a future
+    // "Trash" UI restore accidentally deleted data.
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> deleteBill(@PathVariable Integer id) {
-        billMapper.deleteBill(id);
-        return ResponseEntity.ok(message("Bill deleted successfully"));
+        billMapper.softDeleteBill(id);
+        return ResponseEntity.ok(message("Bill moved to trash"));
     }
 
     /**

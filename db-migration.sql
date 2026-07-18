@@ -24,7 +24,65 @@ SET @sql := IF(@ix = 0,
     'DO 0');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- 3) Custom Categories Table
+-- 3) Recurring bill templates (auto-posted monthly by the @Scheduled job)
+-- See the matching comment in src/main/resources/schema.sql for the full
+-- rationale. day_of_month is clamped to 1-28 in the service layer.
+CREATE TABLE IF NOT EXISTS t_recurring_bill (
+    id                  INT          NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+    user_id             INT          NOT NULL                COMMENT 'Owner of this template (FK -> t_user.id)',
+    amount              DECIMAL(15,2) NOT NULL               COMMENT 'Amount to post every month',
+    type                TINYINT      NOT NULL                COMMENT '0 = expense, 1 = income',
+    category            VARCHAR(64)  NOT NULL                COMMENT 'Category name (matches t_bill.category)',
+    description         VARCHAR(255) DEFAULT NULL            COMMENT 'Optional note copied into the generated bill',
+    day_of_month        TINYINT      NOT NULL                COMMENT 'Day of month to post (1-28)',
+    start_year_month    CHAR(7)      NOT NULL                COMMENT 'YYYY-MM; the first month the template is eligible to fire',
+    last_run_year_month CHAR(7)      DEFAULT NULL            COMMENT 'YYYY-MM of the most recent successful insert; NULL = never run',
+    active              TINYINT(1)   NOT NULL DEFAULT 1       COMMENT '0 = paused, 1 = active',
+    created_at          DATETIME     DEFAULT NULL            COMMENT 'Creation timestamp',
+    PRIMARY KEY (id),
+    KEY idx_user_id (user_id),
+    KEY idx_active_due (active, last_run_year_month)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Templates for automatically generated monthly bills';
+
+-- 4) Soft-delete columns (industry-standard "no data loss" pattern).
+-- Every "delete" becomes an UPDATE setting is_deleted = 1; every SELECT
+-- filters by is_deleted = 0. The DEFAULT 0 means existing rows are
+-- treated as live automatically. The idempotent INFORMATION_SCHEMA check
+-- below works on every MySQL 5.7+ / 8.x version.
+-- See the matching comments in src/main/resources/schema.sql for rationale.
+
+-- t_bill
+SET @ix := (SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE table_schema = DATABASE()
+              AND table_name   = 't_bill'
+              AND column_name  = 'is_deleted');
+SET @sql := IF(@ix = 0,
+    'ALTER TABLE t_bill ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0',
+    'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- t_category
+SET @ix := (SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE table_schema = DATABASE()
+              AND table_name   = 't_category'
+              AND column_name  = 'is_deleted');
+SET @sql := IF(@ix = 0,
+    'ALTER TABLE t_category ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0',
+    'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- t_recurring_bill
+SET @ix := (SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE table_schema = DATABASE()
+              AND table_name   = 't_recurring_bill'
+              AND column_name  = 'is_deleted');
+SET @sql := IF(@ix = 0,
+    'ALTER TABLE t_recurring_bill ADD COLUMN is_deleted TINYINT(1) NOT NULL DEFAULT 0',
+    'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 5) Custom Categories Table
 -- Each row is a user-defined category that the user can freely create,
 -- edit, or delete. Linked to the user through `user_id`.
 CREATE TABLE IF NOT EXISTS t_category (

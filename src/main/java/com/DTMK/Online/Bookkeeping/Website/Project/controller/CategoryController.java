@@ -79,12 +79,14 @@ public class CategoryController {
     }
 
     // DELETE /api/categories/{id}?userId=1
+    // Soft delete: marks the category as trashed. The row is never
+    // actually removed, which lets a future "Trash" UI restore it.
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteCategory(@PathVariable Integer id, @RequestParam Integer userId) {
         try {
             categoryService.deleteCategory(userId, id);
             Map<String, String> resp = new HashMap<>();
-            resp.put("message", "Category deleted successfully");
+            resp.put("message", "Category moved to trash");
             return ResponseEntity.ok(resp);
         } catch (Exception ex) {
             return error("Failed to delete category: " + ex.getMessage(),

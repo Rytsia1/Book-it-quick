@@ -848,12 +848,31 @@ onMounted(async () => {
 .status-body { padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 18px; }
 .status-empty { padding: 30px 24px; color: var(--ash); font-size: 12px; text-align: center; }
 
-.mini-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+/*
+ * Three small stat tiles (BUDGET / SPENT / REMAINING) laid out in a
+ * single row when there's room, wrapping to a new line when there isn't.
+ *
+ * Earlier this used `display: grid; grid-template-columns: repeat(3, 1fr)`
+ * which (a) made the third tile's right edge clip against the sidebar at
+ * common widths (so "REMAINING" rendered as "REMAININ…"), and (b) let a
+ * long currency value push the whole row wider than the panel. Switching
+ * to flex+wrap + min-width:0 + ellipsis on the value fixes both.
+ */
+.mini-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 .mini-stat {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 12px 14px;
+  /* flex: 1 1 0 + min-width: 0 is the canonical flexbox pattern that lets
+     all three children share the row equally and shrink below their
+     intrinsic content width so none of them overflows the panel. */
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 10px 10px;
   background: var(--ink);
   border: 1px solid var(--wire);
   border-radius: 3px;
@@ -863,11 +882,18 @@ onMounted(async () => {
   font-weight: 700;
   letter-spacing: 1.2px;
   color: var(--ash);
+  /* Never wrap the label so words like "REMAINING" stay whole. */
+  white-space: nowrap;
 }
 .mini-stat__value {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--white);
+  /* Long currency values (e.g. $1,234,567.89) now ellipsise instead of
+     pushing the box wider than its share of the row. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .progress-block { display: flex; flex-direction: column; gap: 8px; }
@@ -987,7 +1013,10 @@ onMounted(async () => {
   .page-header__actions { width: 100%; }
   .page-header__actions .btn-ghost,
   .page-header__actions .btn-primary { flex: 1; justify-content: center; }
-  .mini-stats { grid-template-columns: 1fr; }
+  /* Phone-sized viewports: stack the three tiles vertically so each one
+     has the full panel width to itself. */
+  .mini-stats { flex-direction: column; }
+  .mini-stat  { flex: 1 1 100%; }
   .month-label { min-width: 130px; font-size: 14px; }
 }
 @media (max-width: 480px) {

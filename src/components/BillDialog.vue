@@ -48,6 +48,37 @@
         />
       </el-form-item>
 
+      <!--
+        "Make Monthly Transaction" toggle. When checked, the form's
+        "Date" field becomes irrelevant (the cron will fill it in) and
+        a "Run on day of month" field appears. The submit handler
+        branches to POST /api/recurring-bills instead of /bills.
+      -->
+      <el-form-item label="Recurring" class="recurring-toggle">
+        <el-checkbox v-model="formData.isRecurring">
+          Make Monthly Transaction
+        </el-checkbox>
+      </el-form-item>
+
+      <el-form-item
+        v-if="formData.isRecurring"
+        label="Run on day of month"
+        prop="dayOfMonth"
+        class="recurring-day"
+      >
+        <el-input-number
+          v-model="formData.dayOfMonth"
+          :min="1"
+          :max="28"
+          :step="1"
+          size="default"
+          class="day-input"
+        />
+        <span class="recurring-hint">
+          The bill will be auto-posted on this day of every month (1-28 to be valid every month).
+        </span>
+      </el-form-item>
+
       <el-form-item label="Description" prop="description">
         <el-input
           v-model="formData.description"
@@ -109,7 +140,11 @@ const formData = ref({
   category: '',
   amount: '',
   date: new Date().toISOString().split('T')[0],
-  description: ''
+  description: '',
+  // Recurring-bill template state. The cron job will auto-post a bill
+  // for this template on the configured day of every month.
+  isRecurring: false,
+  dayOfMonth: 1,
 })
 
 const formRules = {
@@ -130,7 +165,23 @@ const formRules = {
   ],
   date: [
     { required: true, message: 'Date is required', trigger: 'change' }
-  ]
+  ],
+  // Only validated when the recurring checkbox is on. The 1-28 range is
+  // also enforced by el-input-number's :min/:max, so this is a belt-and-
+  // suspenders check.
+  dayOfMonth: [
+    {
+      validator: (rule, value, callback) => {
+        if (!formData.value.isRecurring) return callback()
+        const n = Number(value)
+        if (!Number.isInteger(n) || n < 1 || n > 28) {
+          return callback(new Error('Day must be an integer between 1 and 28'))
+        }
+        callback()
+      },
+      trigger: 'change',
+    },
+  ],
 }
 
 const resetForm = () => {
@@ -139,7 +190,9 @@ const resetForm = () => {
     category: '',
     amount: '',
     date: new Date().toISOString().split('T')[0],
-    description: ''
+    description: '',
+    isRecurring: false,
+    dayOfMonth: 1,
   }
   formRef.value?.clearValidate()
 }
@@ -172,20 +225,49 @@ const handleSubmit = async () => {
     // Convert the UI's "income"/"expense" string to the Integer (1/0)
     // that the backend's Bill.type field expects. Also map the form's
     // "date" field to "billDate" so Jackson can bind it to the entity.
-    const payload = {
-      userId: userId,
-      type: formData.value.type === 'income' ? 1 : 0,
-      category: formData.value.category,
-      amount: formData.value.amount,
-      billDate: formData.value.date,
-      description: formData.value.description || ''
-    }
+    const typeInt = formData.value.type === 'income' ? 1 : 0
+
+    // Two distinct submission paths. Edit + new one-off go to /bills.
+    // New recurring goes to /api/recurring-bills so the backend can
+    // persist the template that the @Scheduled cron will fire monthly.
     if (isEditMode.value) {
-      // Update existing bill
+      // Edit mode is one-off only — recurring templates are managed
+      // through the dedicated endpoints, not the bill editor.
+      const payload = {
+        userId: userId,
+        type: typeInt,
+        category: formData.value.category,
+        amount: formData.value.amount,
+        billDate: formData.value.date,
+        description: formData.value.description || ''
+      }
       await request.put(`/bills/${formData.value.id}`, payload)
       ElMessage.success('Bill updated successfully')
+    } else if (formData.value.isRecurring) {
+      // Recurring template. The backend clamps dayOfMonth to 1-28 and
+      // derives startYearMonth from "now" if not provided.
+      const payload = {
+        userId: userId,
+        amount: formData.value.amount,
+        type: typeInt,
+        category: formData.value.category,
+        description: formData.value.description || '',
+        dayOfMonth: formData.value.dayOfMonth,
+      }
+      await request.post('/api/recurring-bills', payload)
+      ElMessage.success(
+        `Recurring bill created — will be auto-posted on the ${formData.value.dayOfMonth} of every month.`
+      )
     } else {
-      // Create new bill
+      // Standard one-off bill.
+      const payload = {
+        userId: userId,
+        type: typeInt,
+        category: formData.value.category,
+        amount: formData.value.amount,
+        billDate: formData.value.date,
+        description: formData.value.description || ''
+      }
       await request.post('/bills', payload)
       ElMessage.success('Bill added successfully')
     }
@@ -214,5 +296,25 @@ const handleDialogClose = () => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+/* Recurring toggle row: keep the checkbox aligned with the form labels. */
+.recurring-toggle :deep(.el-form-item__content) {
+  display: flex;
+  align-items: center;
+}
+
+/* Day-of-month input + hint laid out side-by-side. */
+.recurring-day :deep(.el-form-item__content) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.day-input { width: 120px; }
+.recurring-hint {
+  font-size: 11px;
+  color: var(--ash);
+  letter-spacing: 0.3px;
 }
 </style>

@@ -12,4 +12,12 @@ public class Category {
     private String name;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    /**
+     * Soft-delete flag. 0 = live, 1 = moved to trash. Filtered out of
+     * every read query in {@code CategoryMapper}, and the existing
+     * {@code deleteCategory} endpoint is now backed by an
+     * {@code UPDATE … SET is_deleted = 1} so the row is never actually
+     * removed. A future "Trash" UI can restore by setting it back to 0.
+     */
+    private Integer isDeleted;
 }
