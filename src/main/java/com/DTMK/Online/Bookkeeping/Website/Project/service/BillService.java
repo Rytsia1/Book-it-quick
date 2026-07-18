@@ -37,6 +37,10 @@ public class BillService {
         return billMapper.getExpenseByCategory(userId, month, year);
     }
 
+    public List<com.DTMK.Online.Bookkeeping.Website.Project.dto.CategoryStatDTO> getIncomeByCategory(Integer userId, int month, int year) {
+        return billMapper.getIncomeByCategory(userId, month, year);
+    }
+
     public MonthlyStatsDTO getMonthlyStats(Integer userId, int month, int year) {
         BigDecimal income = billMapper.calculateMonthlyIncome(userId, month, year);
         BigDecimal expense = billMapper.calculateMonthlyExpense(userId, month, year);
@@ -65,12 +69,20 @@ public class BillService {
         return stats;
     }
 
-    public List<Bill> getBillsByCategory(Integer userId, String category, int month, int year) {
-        return billMapper.findBillsByCategoryAndMonth(userId, category, month, year);
+    public List<Bill> getBillsByCategory(Integer userId, String category, int type, int month, int year) {
+        return billMapper.findBillsByCategoryAndMonth(userId, category, type, month, year);
     }
 
     public List<Bill> getBillsByType(Integer userId, int type, int month, int year) {
         return billMapper.findBillsByTypeAndMonth(userId, type, month, year);
+    }
+
+    public List<com.DTMK.Online.Bookkeeping.Website.Project.dto.DailyStatDTO> getDailyStats(Integer userId, int month, int year) {
+        return billMapper.getDailyStats(userId, month, year);
+    }
+
+    public List<Bill> getAllBillsByMonth(Integer userId, int month, int year) {
+        return billMapper.findAllBillsByMonth(userId, month, year);
     }
 
 }

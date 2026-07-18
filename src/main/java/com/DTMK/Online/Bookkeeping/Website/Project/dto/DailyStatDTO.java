@@ -6,6 +6,7 @@ import java.time.LocalDate;
 
 @Data
 public class DailyStatDTO {
-    private LocalDate date;   // Date (for example: 2026-07-16)
-    private BigDecimal total; // Total expenses on that date
+    private LocalDate date;     // Date (for example: 2026-07-16)
+    private BigDecimal income;  // Total income on that date
+    private BigDecimal expense; // Total expenses on that date
 }

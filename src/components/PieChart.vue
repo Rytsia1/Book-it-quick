@@ -11,6 +11,9 @@ import { CanvasRenderer } from 'echarts/renderers'
 
 echarts.use([PieChartSeries, TitleComponent, TooltipComponent, LegendComponent, CanvasRenderer])
 
+// Default fallback palette (mixed) — used when no `palette` prop is provided.
+const DEFAULT_PALETTE = ['#F05A14', '#22C55E', '#3B82F6', '#F59E0B', '#A855F7', '#EC4899', '#14B8A6', '#FF7A3D', '#6366F1', '#EF4444']
+
 const props = defineProps({
   data: {
     type: Array,
@@ -24,6 +27,13 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // Optional color palette. Pass an array of hex colors to override the default.
+  // Use this to assign different palettes to e.g. income vs expense pie charts so
+  // viewers don't confuse categories across charts.
+  palette: {
+    type: Array,
+    default: null,
+  },
 })
 
 const emit = defineEmits(['sliceClick'])
@@ -31,63 +41,114 @@ const emit = defineEmits(['sliceClick'])
 const chartContainer = ref(null)
 let chartInstance = null
 
-const PALETTE = ['#F05A14', '#22C55E', '#3B82F6', '#F59E0B', '#A855F7', '#EC4899', '#14B8A6', '#FF7A3D', '#6366F1', '#EF4444']
+// Resolve the active palette, falling back to the default if none was provided.
+const activePalette = () => (props.palette && props.palette.length ? props.palette : DEFAULT_PALETTE)
 
-const buildOption = (data) => ({
-  backgroundColor: 'transparent',
-  tooltip: {
-    trigger: 'item',
-    backgroundColor: '#111111',
-    borderColor: '#232323',
-    textStyle: { color: '#DEDEDE', fontSize: 13 },
-    formatter: (p) => {
-      const val = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(p.value)
-      return `<b>${p.name}</b><br/>${val} <span style="color:#94a3b8">(${p.percent.toFixed(1)}%)</span>`
-    },
-  },
-  legend: {
-    orient: 'vertical',
-    right: '2%',
-    top: 'center',
-    textStyle: { color: '#8A8A8A', fontSize: 12 },
-    itemWidth: 12,
-    itemHeight: 12,
-  },
-  series: [
-    {
-      name: 'Category',
-      type: 'pie',
-      radius: ['42%', '68%'],
-      center: ['40%', '50%'],
-      avoidLabelOverlap: true,
-      color: PALETTE,
-      itemStyle: {
-        borderRadius: 3,
-        borderColor: '#090909',
-        borderWidth: 2,
+const formatCurrency = (v) => {
+  const n = Number(v) || 0
+  if (n >= 1000) return `$${(n / 1000).toFixed(1)}k`
+  return `$${n.toFixed(0)}`
+}
+
+const buildOption = (data) => {
+  const hasData = data && data.length > 0
+  const palette = activePalette()
+  const total = hasData ? data.reduce((sum, d) => sum + (Number(d.value) || 0), 0) : 0
+
+  // Build legend entries with "Name — XX%" text so users can read proportions at a glance.
+  const legendData = hasData
+    ? data.map((d, i) => {
+        const pct = total > 0 ? Math.round((Number(d.value) || 0) / total * 100) : 0
+        return {
+          name: `${d.name}  ·  ${pct}%`,
+          // ECharts uses the legend `name` field to map colors to the series data.
+          icon: 'roundRect',
+        }
+      })
+    : [{ name: 'No data' }]
+
+  return {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: '#111111',
+      borderColor: '#232323',
+      textStyle: { color: '#DEDEDE', fontSize: 13 },
+      formatter: (p) => {
+        const val = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(p.value)
+        return `<b>${p.name}</b><br/>${val} <span style="color:#94a3b8">(${p.percent.toFixed(1)}%)</span>`
       },
-      label: { show: false },
-      emphasis: {
+    },
+    legend: {
+      orient: 'vertical',
+      right: '2%',
+      top: 'center',
+      data: legendData,
+      textStyle: {
+        color: '#DEDEDE',
+        fontSize: 12,
+        rich: {},
+      },
+      itemWidth: 12,
+      itemHeight: 12,
+      itemGap: 14,
+      formatter: (name) => {
+        // Already includes "Name  ·  XX%" in `name`; just return as-is.
+        return name
+      },
+    },
+    series: [
+      {
+        name: 'Category',
+        type: 'pie',
+        radius: ['42%', '68%'],
+        center: ['40%', '50%'],
+        avoidLabelOverlap: true,
+        color: palette,
         itemStyle: {
-          shadowBlur: 12,
-          shadowColor: 'rgba(240,90,20,0.35)',
+          borderRadius: 3,
+          borderColor: '#090909',
+          borderWidth: 2,
         },
+        // Always-visible labels: show category name + percentage on the slice.
         label: {
           show: true,
-          fontSize: 14,
-          fontWeight: 'bold',
-          color: '#f1f5f9',
-          formatter: '{b}',
+          position: 'inside',
+          formatter: (p) => {
+            const pct = (p.percent ?? 0).toFixed(0) + '%'
+            // Shorten the category name if it's long
+            const name = p.name.length > 10 ? p.name.slice(0, 9) + '…' : p.name
+            return `${name}\n${pct}`
+          },
+          fontSize: 11,
+          fontWeight: 600,
+          color: '#0a0a0a',
+          lineHeight: 14,
+          textShadowColor: 'rgba(255, 255, 255, 0.55)',
+          textShadowBlur: 3,
         },
+        labelLine: { show: false },
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 12,
+            shadowColor: 'rgba(240,90,20,0.35)',
+          },
+          label: {
+            show: true,
+            fontSize: 12,
+            fontWeight: 'bold',
+            color: '#0a0a0a',
+          },
+          scaleSize: 6,
+        },
+        cursor: props.clickable ? 'pointer' : 'default',
+        data: data.length
+          ? data
+          : [{ value: 0, name: 'No data', itemStyle: { color: '#232323' } }],
       },
-      labelLine: { show: false },
-      cursor: props.clickable ? 'pointer' : 'default',
-      data: data.length
-        ? data
-        : [{ value: 0, name: 'No data', itemStyle: { color: '#232323' } }],
-    },
-  ],
-})
+    ],
+  }
+}
 
 const initChart = () => {
   if (!chartContainer.value) return
@@ -112,9 +173,21 @@ const handleResize = () => {
 watch(
   () => props.data,
   (newData) => {
-    chartInstance?.setOption({ series: [{ data: newData.length ? newData : [{ value: 0, name: 'No data', itemStyle: { color: '#2a2a3a' } }] }] })
+    if (chartInstance) {
+      chartInstance.setOption(buildOption(newData), true)
+    }
   },
   { deep: true }
+)
+
+// Re-render the chart if the palette prop changes (so switching palettes works).
+watch(
+  () => props.palette,
+  () => {
+    if (chartInstance) {
+      chartInstance.setOption(buildOption(props.data), true)
+    }
+  }
 )
 
 onMounted(() => {

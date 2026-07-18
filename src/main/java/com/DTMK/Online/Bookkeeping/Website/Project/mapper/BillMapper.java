@@ -49,15 +49,25 @@ public interface BillMapper {
             @org.apache.ibatis.annotations.Param("userId") Integer userId,
             @org.apache.ibatis.annotations.Param("month") int month,
             @org.apache.ibatis.annotations.Param("year") int year);
-    // Retrieves bills by category and month for chart details.
+
+    // Retrieves income statistics by category for the pie chart (type = 1 only).
+    @org.apache.ibatis.annotations.Select("SELECT category AS name, SUM(amount) AS value FROM t_bill " +
+            "WHERE user_id = #{userId} AND type = 1 AND MONTH(bill_date) = #{month} AND YEAR(bill_date) = #{year} " +
+            "GROUP BY category")
+    java.util.List<com.DTMK.Online.Bookkeeping.Website.Project.dto.CategoryStatDTO> getIncomeByCategory(
+            @org.apache.ibatis.annotations.Param("userId") Integer userId,
+            @org.apache.ibatis.annotations.Param("month") int month,
+            @org.apache.ibatis.annotations.Param("year") int year);
+    // Retrieves bills by category, type, and month for chart details.
     @Select("SELECT * FROM t_bill " +
             "WHERE user_id = #{userId} AND category = #{category} " +
-            "AND type = 0 " +
+            "AND type = #{type} " +
             "AND MONTH(bill_date) = #{month} AND YEAR(bill_date) = #{year} " +
             "ORDER BY bill_date DESC")
     List<Bill> findBillsByCategoryAndMonth(
             @org.apache.ibatis.annotations.Param("userId") Integer userId,
             @org.apache.ibatis.annotations.Param("category") String category,
+            @org.apache.ibatis.annotations.Param("type") int type,
             @org.apache.ibatis.annotations.Param("month") int month,
             @org.apache.ibatis.annotations.Param("year") int year);
     // Retrieves bills by type (0 = expense, 1 = income) and month.
@@ -68,6 +78,30 @@ public interface BillMapper {
     List<Bill> findBillsByTypeAndMonth(
             @org.apache.ibatis.annotations.Param("userId") Integer userId,
             @org.apache.ibatis.annotations.Param("type") int type,
+            @org.apache.ibatis.annotations.Param("month") int month,
+            @org.apache.ibatis.annotations.Param("year") int year);
+
+    // Retrieves all bills (both income and expense) for a user within a month.
+    @Select("SELECT * FROM t_bill " +
+            "WHERE user_id = #{userId} " +
+            "AND MONTH(bill_date) = #{month} AND YEAR(bill_date) = #{year} " +
+            "ORDER BY bill_date DESC")
+    List<Bill> findAllBillsByMonth(
+            @org.apache.ibatis.annotations.Param("userId") Integer userId,
+            @org.apache.ibatis.annotations.Param("month") int month,
+            @org.apache.ibatis.annotations.Param("year") int year);
+
+    // Retrieves daily income and expense totals for a month (for the line chart).
+    @org.apache.ibatis.annotations.Select("SELECT bill_date AS date, " +
+            "SUM(CASE WHEN type = 1 THEN amount ELSE 0 END) AS income, " +
+            "SUM(CASE WHEN type = 0 THEN amount ELSE 0 END) AS expense " +
+            "FROM t_bill " +
+            "WHERE user_id = #{userId} " +
+            "AND MONTH(bill_date) = #{month} AND YEAR(bill_date) = #{year} " +
+            "GROUP BY bill_date " +
+            "ORDER BY bill_date ASC")
+    List<com.DTMK.Online.Bookkeeping.Website.Project.dto.DailyStatDTO> getDailyStats(
+            @org.apache.ibatis.annotations.Param("userId") Integer userId,
             @org.apache.ibatis.annotations.Param("month") int month,
             @org.apache.ibatis.annotations.Param("year") int year);
 }
