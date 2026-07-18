@@ -558,34 +558,32 @@ onMounted(() => { fetchBills(); fetchMonthlySummary() })
 .stats-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1px;
-  background: var(--wire);
-  border: 1px solid var(--wire);
-  border-radius: 3px;
+  gap: 12px;
   margin-bottom: 24px;
-  overflow: hidden;
 }
 
 .stat-card {
-  padding: 20px 24px;
+  padding: 24px 28px;
   background: var(--graphite);
+  border-radius: 3px;
 }
 
 .stat-card__label {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 1.5px;
   color: var(--ash);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .stat-card__value {
-  font-family: var(--font-mono);
-  font-size: 26px;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
   color: var(--white);
   line-height: 1;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .stat-card__sub {
@@ -603,7 +601,6 @@ onMounted(() => { fetchBills(); fetchMonthlySummary() })
 /* ── Panel ── */
 .panel {
   background: var(--graphite);
-  border: 1px solid var(--wire);
   border-radius: 3px;
   overflow: hidden;
 }

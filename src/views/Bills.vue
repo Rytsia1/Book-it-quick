@@ -401,12 +401,28 @@ onMounted(() => { fetchBills() })
 /* Table Panel */
 .table-panel {
   background: var(--graphite);
-  border: 1px solid var(--wire);
+  border: none;
   border-radius: 3px;
   overflow: hidden;
 }
 
 .table-panel :deep(.el-table) { border-radius: 0 !important; }
+
+/* Modern table: no vertical grid lines, only soft horizontal hairlines. */
+.table-panel :deep(.el-table__cell) {
+  border-right: none !important;
+}
+.table-panel :deep(.el-table__row) td.el-table__cell {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+.table-panel :deep(th.el-table__cell) {
+  border-right: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10) !important;
+}
+.table-panel :deep(.el-table__inner-wrapper::before),
+.table-panel :deep(.el-table__border-left-patch) {
+  background: transparent !important;
+}
 
 /* Badges */
 .badge {

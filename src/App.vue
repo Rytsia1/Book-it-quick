@@ -16,7 +16,7 @@ const showNavBar = computed(() => route.path !== '/login' && route.path !== '/re
 /* ── Design Tokens ── */
 :root {
   --ink:      #090909;
-  --graphite: #111111;
+  --graphite: #141414;
   --slate:    #181818;
   --wire:     #232323;
   --ash:      #5A5A5A;
