@@ -521,15 +521,15 @@ defineExpose({ refreshAnalytics })
 @keyframes spin { to { transform: rotate(360deg); } }
 .summary-section { margin-bottom: 32px; }
 .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-.stat-card { display: flex; align-items: flex-start; gap: 16px; padding: 24px; background: var(--graphite); border: 1px solid var(--wire); border-radius: 14px; transition: all 0.3s ease; position: relative; }
-.stat-card:hover { border-color: var(--slate); box-shadow: 0 8px 30px rgba(0,0,0,0.3); transform: translateY(-2px); }
+.stat-card { display: flex; align-items: flex-start; gap: 16px; padding: 24px; background: var(--graphite); border: 1px solid var(--wire); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); transition: all 0.3s ease; position: relative; }
+.stat-card:hover { border-color: var(--slate); box-shadow: var(--shadow-elev); transform: translateY(-2px); }
 .stat-card--clickable { cursor: pointer; outline: none; user-select: none; }
-.stat-card--clickable:hover { border-color: var(--ember); box-shadow: 0 8px 30px rgba(240, 90, 20, 0.18); }
+.stat-card--clickable:hover { border-color: var(--ember); box-shadow: var(--shadow-elev); }
 .stat-card--clickable:focus-visible { border-color: var(--ember); box-shadow: 0 0 0 3px rgba(240, 90, 20, 0.25); }
 .stat-card--clickable:active { transform: translateY(0) scale(0.99); }
 .stat-card-arrow { margin-left: auto; align-self: center; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background: rgba(240, 90, 20, 0.08); color: var(--ember); opacity: 0; transform: translateX(-4px); transition: opacity 0.2s, transform 0.2s, background 0.2s; flex-shrink: 0; }
 .stat-card--clickable:hover .stat-card-arrow, .stat-card--clickable:focus-visible .stat-card-arrow { opacity: 1; transform: translateX(0); background: rgba(240, 90, 20, 0.18); }
-.stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.stat-icon { width: 48px; height: 48px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .income-icon { background: rgba(16,185,129,0.12); color: var(--green); }
 .expense-icon { background: rgba(239,68,68,0.12); color: var(--red); }
 .balance-icon { background: rgba(240,90,20,0.12); color: var(--ember); }
@@ -549,7 +549,7 @@ defineExpose({ refreshAnalytics })
 .charts-section { margin-bottom: 32px; }
 .charts-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
 .charts-grid--row { margin-top: 20px; }
-.chart-card { background: var(--graphite); border: 1px solid var(--wire); border-radius: 14px; overflow: hidden; transition: border-color 0.2s; }
+.chart-card { background: var(--graphite); border: 1px solid var(--wire); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); overflow: hidden; transition: border-color 0.2s; }
 .chart-header { padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: flex-start; }
 .chart-title { font-size: 16px; font-weight: 600; color: var(--bone); margin: 0; }
 .chart-subtitle { font-size: 13px; color: var(--muted); }
@@ -585,7 +585,7 @@ defineExpose({ refreshAnalytics })
 .tx-month-short { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
 .tx-info { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .tx-desc { font-size: 14px; color: var(--bone); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tx-category-tag { font-size: 11px; color: var(--ember); background: rgba(240,90,20,0.1); padding: 2px 8px; border-radius: 2px; align-self: flex-start; }
+.tx-category-tag { font-size: 11px; color: var(--ember); background: rgba(240,90,20,0.1); padding: 2px 8px; border-radius: 6px; align-self: flex-start; }
 .tx-amount { font-size: 14px; font-weight: 700; font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
 .tx-amount--expense { color: var(--red); }
 .tx-amount--income { color: var(--green); }

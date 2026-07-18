@@ -632,7 +632,7 @@ onMounted(async () => {
   font-weight: 700;
   font-family: var(--font-body);
   letter-spacing: 0.5px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -724,7 +724,7 @@ onMounted(async () => {
   background: rgba(240, 90, 20, 0.06);
   border: 1px solid rgba(240, 90, 20, 0.25);
   border-left: 3px solid var(--ember);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
 }
 .empty-cta__icon {
   width: 48px; height: 48px;
@@ -759,8 +759,9 @@ onMounted(async () => {
 /* Panel */
 .panel {
   background: var(--graphite);
-  border: 1px solid var(--wire);
-  border-radius: 3px;
+  border: none;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 .panel :deep(.el-table) { border-radius: 0 !important; }
@@ -805,7 +806,7 @@ onMounted(async () => {
   padding: 10px 14px;
   background: var(--ink);
   border: 1px solid var(--wire);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
 }
 .form-preview__label,
 .form-current__label {
@@ -838,7 +839,7 @@ onMounted(async () => {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.8px;
-  border-radius: 2px;
+  border-radius: 6px;
 }
 .status-pill--ok       { background: rgba(34, 197, 94, 0.12);  color: var(--green); }
 .status-pill--warning  { background: rgba(245, 158, 11, 0.12); color: var(--amber); }
@@ -875,7 +876,7 @@ onMounted(async () => {
   padding: 10px 10px;
   background: var(--ink);
   border: 1px solid var(--wire);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
 }
 .mini-stat__label {
   font-size: 9px;
@@ -949,7 +950,7 @@ onMounted(async () => {
   letter-spacing: 0.8px;
   background: rgba(240, 90, 20, 0.12);
   color: var(--ember);
-  border-radius: 2px;
+  border-radius: 6px;
   vertical-align: middle;
 }
 
@@ -985,7 +986,7 @@ onMounted(async () => {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.8px;
-  border-radius: 2px;
+  border-radius: 6px;
 }
 .badge--ok      { background: rgba(34, 197, 94, 0.12);  color: var(--green); }
 .badge--warning { background: rgba(245, 158, 11, 0.12); color: var(--amber); }

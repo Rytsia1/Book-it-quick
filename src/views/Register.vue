@@ -247,7 +247,7 @@ const handleRegister = async () => {
   margin-top: 8px;
   background: var(--ember);
   border: none;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   color: #fff;
   font-size: 13px;
   font-weight: 700;

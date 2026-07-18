@@ -158,7 +158,7 @@ const handleLogout = () => {
   padding: 6px 12px;
   background: transparent;
   border: 1px solid var(--wire);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   color: var(--ash);
   font-size: 12px;
   font-weight: 600;

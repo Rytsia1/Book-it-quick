@@ -442,7 +442,7 @@ onMounted(async () => {
   font-weight: 700;
   font-family: var(--font-body);
   letter-spacing: 0.5px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -495,7 +495,7 @@ onMounted(async () => {
 .tab-count {
   padding: 1px 6px;
   background: var(--wire);
-  border-radius: 2px;
+  border-radius: 6px;
   font-size: 10px;
   color: var(--muted);
 }
@@ -515,8 +515,9 @@ onMounted(async () => {
   color: var(--ash);
   font-size: 13px;
   background: var(--graphite);
-  border: 1px solid var(--wire);
-  border-radius: 3px;
+  border: none;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
 }
 .spinner {
   width: 30px; height: 30px;
@@ -541,7 +542,8 @@ onMounted(async () => {
   padding: 14px 16px;
   background: var(--graphite);
   border: 1px solid var(--wire);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
   transition: all 0.15s;
   position: relative;
 }
@@ -557,7 +559,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 .cat-card--income .cat-card__icon {
   background: rgba(34, 197, 94, 0.12);
@@ -608,7 +610,7 @@ onMounted(async () => {
   justify-content: center;
   background: transparent;
   border: 1px solid var(--wire);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.15s;
 }

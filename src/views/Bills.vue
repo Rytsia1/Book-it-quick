@@ -322,7 +322,7 @@ onMounted(() => { fetchBills() })
   padding: 8px 16px;
   background: var(--ember);
   border: none;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
@@ -340,7 +340,7 @@ onMounted(() => { fetchBills() })
   padding: 8px 14px;
   background: transparent;
   border: 1px solid var(--wire);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
@@ -388,7 +388,7 @@ onMounted(() => { fetchBills() })
 .tab-count {
   padding: 1px 6px;
   background: var(--wire);
-  border-radius: 2px;
+  border-radius: 6px;
   font-size: 10px;
   color: var(--muted);
 }
@@ -402,7 +402,8 @@ onMounted(() => { fetchBills() })
 .table-panel {
   background: var(--graphite);
   border: none;
-  border-radius: 3px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
@@ -431,7 +432,7 @@ onMounted(() => { fetchBills() })
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.8px;
-  border-radius: 2px;
+  border-radius: 6px;
 }
 .badge--income  { background: rgba(34, 197, 94, 0.1);  color: var(--green); }
 .badge--expense { background: rgba(239, 68, 68, 0.1);  color: var(--red); }
@@ -459,7 +460,7 @@ onMounted(() => { fetchBills() })
   justify-content: center;
   background: transparent;
   border: 1px solid var(--wire);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -481,8 +482,9 @@ onMounted(() => { fetchBills() })
   margin-top: 16px;
   padding: 12px 16px;
   background: var(--graphite);
-  border: 1px solid var(--wire);
-  border-radius: 3px;
+  border: none;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
 }
 .pagination-bar :deep(.el-pagination) { color: var(--ash); }
 .pagination-bar :deep(.el-pager li),

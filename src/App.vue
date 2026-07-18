@@ -31,6 +31,13 @@ const showNavBar = computed(() => route.path !== '/login' && route.path !== '/re
   --font-display: 'Space Grotesk', 'Inter', sans-serif;
   --font-body:    'Inter', sans-serif;
   --font-mono:    'JetBrains Mono', 'Courier New', monospace;
+
+  /* ── Radius & Elevation ── */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-elev: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 /* ── Reset & Base ── */
@@ -52,7 +59,8 @@ body {
 .el-card {
   background-color: var(--graphite) !important;
   border: 1px solid var(--wire) !important;
-  border-radius: 3px !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-card) !important;
   color: var(--bone) !important;
 }
 
@@ -65,7 +73,7 @@ body {
 .el-table {
   background-color: var(--graphite) !important;
   color: var(--bone) !important;
-  border-radius: 3px !important;
+  border-radius: var(--radius-md) !important;
 }
 
 .el-table tr { background-color: var(--graphite) !important; }
@@ -97,8 +105,8 @@ body {
 .el-dialog {
   background-color: var(--graphite) !important;
   border: 1px solid var(--wire) !important;
-  border-radius: 4px !important;
-  box-shadow: 0 24px 48px rgba(0,0,0,0.6) !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-card) !important;
 }
 
 .el-dialog__header { border-bottom: 1px solid var(--wire) !important; padding: 18px 24px !important; }
@@ -130,7 +138,7 @@ body {
 .el-input__wrapper {
   background-color: var(--ink) !important;
   border: 1px solid var(--wire) !important;
-  border-radius: 3px !important;
+  border-radius: var(--radius-sm) !important;
   box-shadow: none !important;
 }
 .el-input__wrapper:hover { border-color: var(--muted) !important; box-shadow: none !important; }
@@ -146,7 +154,7 @@ body {
 .el-textarea__inner {
   background-color: var(--ink) !important;
   border: 1px solid var(--wire) !important;
-  border-radius: 3px !important;
+  border-radius: var(--radius-sm) !important;
   color: var(--bone) !important;
   box-shadow: none !important;
   font-family: var(--font-body) !important;
@@ -201,9 +209,9 @@ body {
 .el-select-dropdown {
   background-color: var(--graphite) !important;
   border: 1px solid var(--wire) !important;
-  border-radius: 3px !important;
+  border-radius: var(--radius-sm) !important;
 }
-.el-select-dropdown__item { font-family: var(--font-body) !important; }
+.el-select-dropdown__item { font-family: var(--font-body) !important; border-radius: 6px !important; margin: 2px 0 !important; }
 .el-select-dropdown__item.hover,
 .el-select-dropdown__item:hover { background-color: var(--slate) !important; color: var(--white) !important; }
 .el-select-dropdown__item.selected { color: var(--ember) !important; }
@@ -256,7 +264,7 @@ body {
 .el-date-picker, .el-picker-panel {
   background-color: var(--graphite) !important;
   border: 1px solid var(--wire) !important;
-  border-radius: 3px !important;
+  border-radius: var(--radius-md) !important;
   color: var(--bone) !important;
 }
 .el-date-table td.in-range .el-date-table-cell { background-color: rgba(240,90,20,0.1) !important; }
@@ -270,7 +278,7 @@ body {
   background-color: var(--ember) !important;
   border-color: var(--ember) !important;
   color: #fff !important;
-  border-radius: 3px !important;
+  border-radius: var(--radius-sm) !important;
   font-weight: 600 !important;
   letter-spacing: 0.5px !important;
   font-family: var(--font-body) !important;
@@ -283,7 +291,7 @@ body {
   background-color: transparent !important;
   border: 1px solid var(--wire) !important;
   color: var(--bone) !important;
-  border-radius: 3px !important;
+  border-radius: var(--radius-sm) !important;
   font-family: var(--font-body) !important;
 }
 .el-button--default:hover {
@@ -296,7 +304,7 @@ body {
 .el-message-box {
   background-color: var(--graphite) !important;
   border: 1px solid var(--wire) !important;
-  border-radius: 4px !important;
+  border-radius: var(--radius-md) !important;
 }
 .el-message-box__title   { color: var(--white) !important; font-family: var(--font-display) !important; }
 .el-message-box__content { color: var(--muted) !important; }
@@ -305,10 +313,10 @@ body {
 .el-dropdown-menu {
   background-color: var(--graphite) !important;
   border: 1px solid var(--wire) !important;
-  border-radius: 3px !important;
+  border-radius: var(--radius-sm) !important;
   padding: 4px !important;
 }
-.el-dropdown-menu__item { color: var(--bone) !important; border-radius: 2px !important; font-family: var(--font-body) !important; font-size: 13px !important; }
+.el-dropdown-menu__item { color: var(--bone) !important; border-radius: 6px !important; font-family: var(--font-body) !important; font-size: 13px !important; }
 .el-dropdown-menu__item:hover { background-color: var(--slate) !important; color: var(--white) !important; }
 .el-dropdown-menu__item--divided { border-top: 1px solid var(--wire) !important; margin: 4px 0 !important; }
 
@@ -316,11 +324,11 @@ body {
 .el-empty__description p { color: var(--ash) !important; }
 
 /* Notifications */
-.el-message { border-radius: 3px !important; border-color: var(--wire) !important; background-color: var(--graphite) !important; }
+.el-message { border-radius: var(--radius-sm) !important; border-color: var(--wire) !important; background-color: var(--graphite) !important; }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--ink); }
-::-webkit-scrollbar-thumb { background: var(--wire); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--wire); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--ash); }
 </style>

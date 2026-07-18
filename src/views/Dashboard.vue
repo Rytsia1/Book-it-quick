@@ -500,7 +500,7 @@ onMounted(() => { fetchBills(); fetchMonthlySummary() })
   padding: 8px 16px;
   background: var(--ember);
   border: none;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
@@ -515,7 +515,7 @@ onMounted(() => { fetchBills(); fetchMonthlySummary() })
   padding: 8px 16px;
   background: transparent;
   border: 1px solid var(--wire);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
@@ -530,7 +530,7 @@ onMounted(() => { fetchBills(); fetchMonthlySummary() })
   padding: 8px 16px;
   background: transparent;
   border: 1px solid var(--wire);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
@@ -565,7 +565,8 @@ onMounted(() => { fetchBills(); fetchMonthlySummary() })
 .stat-card {
   padding: 24px 28px;
   background: var(--graphite);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
 }
 
 .stat-card__label {
@@ -601,7 +602,8 @@ onMounted(() => { fetchBills(); fetchMonthlySummary() })
 /* ── Panel ── */
 .panel {
   background: var(--graphite);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
@@ -687,7 +689,7 @@ onMounted(() => { fetchBills(); fetchMonthlySummary() })
   padding: 10px 12px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   color: var(--muted);
   font-size: 13px;
   font-weight: 500;
@@ -740,7 +742,7 @@ onMounted(() => { fetchBills(); fetchMonthlySummary() })
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.8px;
-  border-radius: 2px;
+  border-radius: 6px;
 }
 .badge--income  { background: rgba(34,197,94,0.1);  color: var(--green); }
 .badge--expense { background: rgba(239,68,68,0.1);  color: var(--red); }
