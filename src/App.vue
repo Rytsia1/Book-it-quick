@@ -9,10 +9,26 @@ const showNavBar = computed(() => route.path !== '/login' && route.path !== '/re
 
 <template>
   <NavBar v-if="showNavBar" />
-  <router-view />
+  <div v-if="showNavBar" class="app-wrapper">
+    <router-view />
+  </div>
+  <router-view v-else />
 </template>
 
 <style>
+/* ── App Wrapper (constrains content to 1200px on authenticated pages) ── */
+.app-wrapper {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 32px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .app-wrapper { padding: 0 16px; }
+}
+
 /* ── Design Tokens ── */
 :root {
   --ink:      #090909;

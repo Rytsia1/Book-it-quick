@@ -97,12 +97,6 @@
               <h3 class="chart-title">Income Distribution</h3>
               <span class="chart-subtitle">By category · click a slice for details</span>
             </div>
-            <span class="click-hint">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/>
-              </svg>
-              Click slice
-            </span>
           </div>
           <div class="chart-body">
             <PieChart
@@ -121,12 +115,6 @@
               <h3 class="chart-title">Expense Distribution</h3>
               <span class="chart-subtitle">By category · click a slice for details</span>
             </div>
-            <span class="click-hint">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/>
-              </svg>
-              Click slice
-            </span>
           </div>
           <div class="chart-body">
             <PieChart
@@ -147,12 +135,6 @@
               <h3 class="chart-title">Transaction Summary</h3>
               <span class="chart-subtitle">Income vs Expenses · click a slice for details</span>
             </div>
-            <span class="click-hint">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/>
-              </svg>
-              Click slice
-            </span>
           </div>
           <div class="chart-body">
             <PieChart :data="typeData" title="" :clickable="true" @sliceClick="handleTypeClick" />
@@ -506,7 +488,7 @@ onMounted(fetchAnalytics)
 defineExpose({ refreshAnalytics })
 </script>
 <style scoped>
-.analytics-container { padding: 32px; max-width: 1440px; margin: 0 auto; min-height: 100vh; }
+.analytics-container { padding: 32px; min-height: 100vh; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
 .page-title { font-size: 24px; font-weight: 700; color: var(--bone); margin: 0; }
 .page-subtitle { font-size: 14px; color: var(--muted); margin: 4px 0 0; }
@@ -553,8 +535,6 @@ defineExpose({ refreshAnalytics })
 .chart-header { padding: 20px 24px 0; display: flex; justify-content: space-between; align-items: flex-start; }
 .chart-title { font-size: 16px; font-weight: 600; color: var(--bone); margin: 0; }
 .chart-subtitle { font-size: 13px; color: var(--muted); }
-.click-hint { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ember); background: rgba(240,90,20,0.08); border: 1px solid rgba(240,90,20,0.2); padding: 4px 10px; border-radius: 20px; white-space: nowrap; animation: pulse-hint 2.5s ease-in-out infinite; }
-@keyframes pulse-hint { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
 .chart-body { padding: 12px 24px 24px; }
 .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; text-align: center; }
 .empty-title { font-size: 18px; font-weight: 600; color: var(--muted); margin: 20px 0 8px; }

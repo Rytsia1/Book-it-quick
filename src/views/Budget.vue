@@ -4,7 +4,6 @@
     <!-- Page Header -->
     <div class="page-header">
       <div>
-        <p class="page-eyebrow">BOOKKEEPING / BUDGET</p>
         <h1 class="page-title">Monthly Budget</h1>
         <p class="page-subtitle">Set a spending limit and track your progress each month.</p>
       </div>
@@ -576,8 +575,6 @@ onMounted(async () => {
 <style scoped>
 .page {
   padding: 28px 32px;
-  max-width: 1440px;
-  margin: 0 auto;
   min-height: 100vh;
 }
 

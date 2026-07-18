@@ -24,7 +24,6 @@
     <!-- Page Header -->
     <div class="page-header">
       <div class="page-header__left">
-        <p class="page-eyebrow">BOOKKEEPING / DASHBOARD</p>
         <h1 class="page-title">Welcome, <span class="accent">{{ userName }}</span></h1>
         <p class="page-date">{{ currentDate }}</p>
       </div>
@@ -398,8 +397,6 @@ onMounted(() => { fetchBills(); fetchMonthlySummary() })
 /* ── Page Layout ── */
 .page {
   padding: 28px 32px;
-  max-width: 1440px;
-  margin: 0 auto;
   min-height: 100vh;
 }
 

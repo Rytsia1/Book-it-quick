@@ -3,7 +3,6 @@
     <!-- Page Header -->
     <div class="page-header">
       <div>
-        <p class="page-eyebrow">BOOKKEEPING / CATEGORIES</p>
         <h1 class="page-title">Categories</h1>
         <p class="page-subtitle">All categories available in the bill form, including built-in defaults.</p>
       </div>
@@ -387,8 +386,6 @@ onMounted(async () => {
 <style scoped>
 .page {
   padding: 28px 32px;
-  max-width: 1200px;
-  margin: 0 auto;
   min-height: 100vh;
 }
 

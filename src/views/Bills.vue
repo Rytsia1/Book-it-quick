@@ -3,7 +3,6 @@
     <!-- Page Header -->
     <div class="page-header">
       <div>
-        <p class="page-eyebrow">BOOKKEEPING / BILLS</p>
         <h1 class="page-title">Transactions</h1>
       </div>
       <div class="page-header__actions">
@@ -282,8 +281,6 @@ onMounted(() => { fetchBills() })
 <style scoped>
 .page {
   padding: 28px 32px;
-  max-width: 1440px;
-  margin: 0 auto;
   min-height: 100vh;
 }
 
