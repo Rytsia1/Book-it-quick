@@ -98,10 +98,10 @@ const loading = ref(false)
 const isEditMode = computed(() => !!props.editData)
 
 const categoryOptions = computed(() => {
-  if (formData.type === 'income') {
-    return ['Salary', 'Bonus', 'Freelance', 'Investment', 'Other']
+  if (formData.value.type === 'income') {
+    return ['Salary', 'Bonus', 'Freelance', 'Investment', 'Loan', 'Debt', 'Other Income']
   }
-  return ['Food', 'Transport', 'Utilities', 'Shopping', 'Entertainment', 'Other']
+  return ['Food', 'Transport', 'Utilities', 'Shopping', 'Entertainment', 'Health', 'Education', 'Rent', 'Other Expense']
 })
 
 const formData = ref({
@@ -169,12 +169,15 @@ const handleSubmit = async () => {
       return
     }
 
+    // Convert the UI's "income"/"expense" string to the Integer (1/0)
+    // that the backend's Bill.type field expects. Also map the form's
+    // "date" field to "billDate" so Jackson can bind it to the entity.
     const payload = {
       userId: userId,
-      type: formData.value.type,
+      type: formData.value.type === 'income' ? 1 : 0,
       category: formData.value.category,
       amount: formData.value.amount,
-      date: formData.value.date,
+      billDate: formData.value.date,
       description: formData.value.description || ''
     }
     if (isEditMode.value) {
