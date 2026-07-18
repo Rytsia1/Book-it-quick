@@ -16,6 +16,10 @@ public interface BillMapper {
     @Select("SELECT * FROM t_bill WHERE user_id = #{userId} ORDER BY bill_date DESC")
     List<Bill> findBillsByUserId(Integer userId);
 
+    // Read: retrieves a single bill by its primary key.
+    @Select("SELECT * FROM t_bill WHERE id = #{id}")
+    Bill findById(Integer id);
+
     // Create: adds a new bill.
     @Insert("INSERT INTO t_bill(user_id, amount, type, category, description, bill_date) " +
             "VALUES(#{userId}, #{amount}, #{type}, #{category}, #{description}, #{billDate})")

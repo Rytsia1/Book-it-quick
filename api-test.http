@@ -47,3 +47,55 @@ GET http://localhost:8080/api/budget/1
 
 ### Ambil daftar transaksi per kategori (untuk klik pie chart)
 GET http://localhost:8080/api/stats/transactions?userId=1&category=Makanan&month=7&year=2026
+
+### ── FITUR CUSTOM CATEGORIES ──
+
+### Lihat semua custom category milik user
+GET http://localhost:8080/api/categories?userId=1
+
+### Tambah custom category baru (income)
+POST http://localhost:8080/api/categories
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "type": 1,
+  "name": "Side Hustle"
+}
+
+### Tambah custom category baru (expense)
+POST http://localhost:8080/api/categories
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "type": 0,
+  "name": "Coffee"
+}
+
+### Edit custom category (ganti 1 dengan ID category yang sebenarnya)
+PUT http://localhost:8080/api/categories/1
+Content-Type: application/json
+
+{
+  "id": 1,
+  "userId": 1,
+  "type": 0,
+  "name": "Coffee & Snacks"
+}
+
+### Hapus custom category
+DELETE http://localhost:8080/api/categories/1?userId=1
+
+### Tambah transaksi dengan custom category baru (auto-create)
+POST http://localhost:8080/api/bills
+Content-Type: application/json
+
+{
+  "userId": 1,
+  "amount": 50.00,
+  "type": 0,
+  "category": "Pet Food",
+  "description": "Cat food for Luna",
+  "billDate": "2026-07-18"
+}

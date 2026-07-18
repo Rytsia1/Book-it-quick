@@ -155,21 +155,102 @@ body {
 .el-textarea__inner:focus  { border-color: var(--ember) !important; box-shadow: none !important; }
 .el-textarea__inner::placeholder { color: var(--ash) !important; }
 
-/* Select */
-.el-select .el-input__wrapper { background-color: var(--ink) !important; }
+/* Select - aggressive overrides to fight Element Plus white-on-dark leaks. */
+.el-select,
+.el-select-v2 {
+  color: var(--bone) !important;
+}
+
+/* Wrapper background + border (covers both legacy and new variants). */
+.el-select .el-input__wrapper,
+.el-select-v2 .el-input__wrapper,
+.el-select__wrapper {
+  background-color: var(--ink) !important;
+  box-shadow: 0 0 0 1px var(--wire) inset !important;
+}
+.el-select .el-input__wrapper:hover,
+.el-select-v2 .el-input__wrapper:hover,
+.el-select__wrapper.is-hovering { box-shadow: 0 0 0 1px var(--muted) inset !important; }
+.el-select .el-input__wrapper.is-focus,
+.el-select-v2 .el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused { box-shadow: 0 0 0 1px var(--ember) inset !important; }
+
+/* The actual text inside the closed select. Cover all the candidates. */
+.el-select .el-input__inner,
+.el-select-v2 .el-input__inner,
+.el-select__placeholder,
+.el-select__placeholder.is-transparent,
+.el-select__selected-item,
+.el-select__input,
+.el-select__wrapper .el-select__placeholder,
+.el-select-dropdown__item {
+  color: var(--bone) !important;
+  font-family: var(--font-body) !important;
+  -webkit-text-fill-color: var(--bone) !important; /* defeat WebKit autofill */
+}
+.el-select__placeholder,
+.el-select__placeholder.is-transparent,
+.el-select__input,
+.el-select .el-input__inner::placeholder {
+  color: var(--ash) !important;
+  -webkit-text-fill-color: var(--ash) !important;
+}
+.el-select__selected-item { font-weight: 500 !important; }
+.el-select__caret { color: var(--ash) !important; }
 
 .el-select-dropdown {
   background-color: var(--graphite) !important;
   border: 1px solid var(--wire) !important;
   border-radius: 3px !important;
 }
-.el-select-dropdown__item { color: var(--bone) !important; font-family: var(--font-body) !important; }
+.el-select-dropdown__item { font-family: var(--font-body) !important; }
 .el-select-dropdown__item.hover,
-.el-select-dropdown__item:hover { background-color: var(--slate) !important; }
+.el-select-dropdown__item:hover { background-color: var(--slate) !important; color: var(--white) !important; }
 .el-select-dropdown__item.selected { color: var(--ember) !important; }
+.el-select-dropdown__item.selected:hover { color: var(--ember) !important; }
 
-/* InputNumber */
+/* InputNumber - explicit text color so the value is readable. */
 .el-input-number .el-input__wrapper { background-color: var(--ink) !important; }
+.el-input-number .el-input__inner {
+  color: var(--bone) !important;
+  background-color: transparent !important;
+  -webkit-text-fill-color: var(--bone) !important;
+}
+.el-input-number__decrease,
+.el-input-number__increase {
+  background: transparent !important;
+  color: var(--muted) !important;
+  border-color: var(--wire) !important;
+}
+.el-input-number__decrease:hover,
+.el-input-number__increase:hover {
+  background: var(--slate) !important;
+  color: var(--ember) !important;
+}
+
+/* Date picker - the displayed date inside the input. */
+.el-date-editor .el-input__inner {
+  color: var(--bone) !important;
+  background-color: transparent !important;
+  -webkit-text-fill-color: var(--bone) !important;
+}
+.el-date-editor .el-input__inner::placeholder { color: var(--ash) !important; }
+.el-date-editor.el-input,
+.el-date-editor.el-input__wrapper {
+  background-color: var(--ink) !important;
+  box-shadow: 0 0 0 1px var(--wire) inset !important;
+}
+.el-date-editor.el-input:hover,
+.el-date-editor.el-input__wrapper:hover { box-shadow: 0 0 0 1px var(--muted) inset !important; }
+.el-date-editor.el-input.is-focus,
+.el-date-editor.el-input__wrapper.is-focus { box-shadow: 0 0 0 1px var(--ember) inset !important; }
+.el-date-editor .el-input__prefix,
+.el-date-editor .el-input__suffix { color: var(--ash) !important; }
+.el-date-editor .el-range-input { color: var(--bone) !important; background-color: transparent !important; }
+.el-date-editor .el-range-input::placeholder { color: var(--ash) !important; }
+.el-date-editor .el-range-separator { color: var(--ash) !important; }
+.el-date-editor .el-input__icon,
+.el-date-editor .el-icon { color: var(--ash) !important; }
 
 /* Date picker */
 .el-date-picker, .el-picker-panel {

@@ -7,6 +7,7 @@ import Register from '@/views/Register.vue'
 import Dashboard from '@/views/Dashboard.vue'
 import Analytics from '@/views/Analytics.vue'
 import Bills from '@/views/Bills.vue'
+import Categories from '@/views/Categories.vue'
 
 /**
  * Route Configuration
@@ -64,6 +65,15 @@ const routes = [
     meta: {
       requiresAuth: true,
       title: 'Analytics - Personal Bookkeeping',
+    },
+  },
+  {
+    path: '/categories',
+    name: 'Categories',
+    component: Categories,
+    meta: {
+      requiresAuth: true,
+      title: 'Custom Categories - Personal Bookkeeping',
     },
   },
   {
