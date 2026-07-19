@@ -315,13 +315,18 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 import BillDialog from '@/components/BillDialog.vue'
 import { fmtAmount, fmtSigned, useCurrency } from '@/composables/useCurrency'
-import { clearTokens, clearAllAuth, logoutOnServer } from '@/utils/auth'
+import {
+    getAccessToken,
+    getRefreshToken,
+    clearTokens,
+    wipeAllLocalStorage,
+} from '@/utils/auth'
 
 const router = useRouter()
 
@@ -499,23 +504,59 @@ const redirectToLogin = (reason) => {
   }
 }
 
-const handleCommand = async (cmd) => {
+const handleCommand = (cmd) => {
   if (cmd === 'logout') {
-    // Tell the backend to revoke BOTH the access token (jti -> denylist)
-    // and the refresh token (hash -> revoked=1) before we wipe them
-    // locally. logoutOnServer() is best-effort: a network failure
-    // still proceeds to local cleanup so the UI is never stuck.
-    // The await is wrapped so a slow /auth/logout can never block the
-    // user from being redirected to /login.
-    try {
-      await Promise.race([
-        logoutOnServer(),
-        new Promise((resolve) => setTimeout(resolve, 2000)),
-      ])
-    } catch (_) { /* best-effort */ }
-    clearAllAuth()
-    router.push('/login').catch(() => { /* ignore duplicate-nav */ })
+    // WIPE-THEN-NAVIGATE (see NavBar.vue for the full reasoning).
+    // The previous version awaited a 2 s logoutOnServer() race before
+    // navigating, which left the navbar visible during the wait and
+    // let a second click tear the component down while ElMessage
+    // was still queuing. The user saw the toast but the page
+    // didn't visibly change.
+    //
+    // The fix is the same as in NavBar.vue: capture the tokens,
+    // wipe local state, queue the navigation, schedule the toast
+    // for the next tick, and fire the server-side revoke in the
+    // background.
+
+    // 1) Capture tokens BEFORE wiping.
+    const accessToken  = getAccessToken()
+    const refreshToken = getRefreshToken()
+
+    // 2) Wipe EVERYTHING in localStorage. Same reasoning as in
+    //    NavBar.vue: a stale 'token' or 'jwt' key from an older
+    //    version of the app would otherwise be picked up by the
+    //    router guard on the next page load and bounce the user
+    //    right back to /dashboard right after this hard-reload.
+    wipeAllLocalStorage()
+
+    // 3) Fire the toast SYNCHRONOUSLY. `el-message` is appended to
+    //    document.body in the same microtask, so the toast is in
+    //    the DOM before any navigation tears the dashboard down.
+    //    The user explicitly asked for "redirect tepat setelah
+    //    notifikasi" — we honour that by queuing the navigation
+    //    in the next two steps, AFTER the toast is committed.
     ElMessage.success('Logged out')
+
+    // 4) Fire-and-forget server-side revoke via raw fetch.
+    if (accessToken || refreshToken) {
+      try {
+        fetch('http://localhost:8080/api/auth/logout', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ accessToken, refreshToken }),
+          keepalive: true,
+        }).catch(() => { /* best-effort */ })
+      } catch (_) { /* best-effort */ }
+    }
+
+    // 5) Hard browser-level redirect to /login. Same reasoning as
+    //    NavBar.vue: skip the SPA router.push (which was getting
+    //    blocked in some edge cases) and do an unconditional hard
+    //    reload via `window.location.href`. The 50 ms delay gives
+    //    the toast (step 3) one render frame before the reload.
+    setTimeout(() => {
+      window.location.href = '/login'
+    }, 50)
   } else if (cmd === 'settings') {
     openBudgetDialog()
   }
