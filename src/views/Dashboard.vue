@@ -68,7 +68,7 @@
     <!-- Main Grid -->
     <div class="main-grid">
       <!-- Recent Bills -->
-      <section class="panel">
+      <section class="panel panel--fill">
         <div class="panel__header">
           <span class="panel__label">RECENT TRANSACTIONS</span>
           <button class="btn-link" @click="openBillDialog">VIEW ALL →</button>
@@ -269,7 +269,16 @@ const currentDate = computed(() => {
   return today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 })
 
-const recentBills = computed(() => bills.value.slice(0, 6))
+// Show the 10 most recent transactions, newest first.
+// The `.slice()` before `.sort()` prevents mutating the original `bills` array
+// (which other computeds/watches rely on). The panel uses flex stretching
+// (see `.panel--fill` styles) so rows fill the available height.
+const recentBills = computed(() =>
+  bills.value
+    .slice()
+    .sort((a, b) => new Date(b.billDate) - new Date(a.billDate)) // newest first
+    .slice(0, 10)
+)
 const totalTransactions = computed(() => bills.value.length)
 
 const currentMonthCount = computed(() => {
@@ -602,6 +611,46 @@ onMounted(() => { fetchBills(); fetchMonthlySummary() })
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   overflow: hidden;
+}
+
+/* When set on a panel, the panel becomes a flex column and the inner
+   el-table is stretched to fill the remaining vertical space. Used on
+   the Dashboard's RECENT TRANSACTIONS panel so it matches the height
+   of the right-hand sidebar. */
+.panel--fill {
+  display: flex;
+  flex-direction: column;
+}
+.panel--fill :deep(.el-table) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.panel--fill :deep(.el-table__inner-wrapper) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.panel--fill :deep(.el-table__body-wrapper) {
+  flex: 1;
+  min-height: 0;
+}
+/* Make the table body a flex column and stretch each row so the
+   visible rows evenly fill the panel's remaining vertical space.
+   min-height keeps a row from collapsing when the panel is very
+   small (mobile). */
+.panel--fill :deep(.el-table__body) {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+.panel--fill :deep(.el-table__row) {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 48px;
+}
+.panel--fill :deep(.el-table__row td.el-table__cell) {
+  flex: 1;
 }
 
 .panel__header {
