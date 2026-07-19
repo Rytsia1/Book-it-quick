@@ -87,6 +87,27 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!--
+		  Rate limiting (Bucket4j 8.x — token-bucket algorithm).
+		  Used by LoginRateLimitService in config/ to throttle
+		  POST /api/auth/login by client IP: 5 failed login
+		  attempts per 15-minute window. Bucket4j 8.x has a
+		  built-in ConcurrentHashMap-backed ProxyManager we
+		  use for the in-memory store, so no Redis or external
+		  cache is required.
+
+		  NOTE: starting with version 8.11.0, the artifact was
+		  renamed from `bucket4j-core` to `bucket4j_jdk17-core`
+		  to align with the new Java-version-specific artifacts.
+		  We use 8.19.0 (latest stable in the 8.x line) so
+		  Maven Central can resolve it.
+		-->
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j_jdk17-core</artifactId>
+			<version>8.19.0</version>
+		</dependency>
+
 	</dependencies>
 
 	<build>

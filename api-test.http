@@ -43,6 +43,47 @@ Authorization: Bearer PASTE_ACCESS_TOKEN_HERE
   "refreshToken": "PASTE_REFRESH_TOKEN_HERE"
 }
 
+### ── BRUTE-FORCE PROTECTION (LoginRateLimitService) ──
+###
+### After 5 FAILED login attempts from the same IP within a 15-minute
+### window, the 6th attempt returns 429 Too Many Requests with a
+### Retry-After header (in seconds). The bucket refills 5 tokens
+### all at once after 15 minutes.
+###
+### To manually test: send 6 login requests with a wrong password.
+###   - Requests 1-5 → 401 (each one also consumes a token)
+###   - Request 6   → 429 + Retry-After header
+###
+### A successful login does NOT consume a token, so a legitimate
+### user who occasionally mistypes their password is not affected.
+
+### Wrong password #1 (401 + consumes 1 token)
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "dios",
+  "password": "WRONG_PASSWORD_1"
+}
+
+### Wrong password #2 (401 + consumes 1 token)
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "dios",
+  "password": "WRONG_PASSWORD_2"
+}
+
+### Wrong password #6 (429 + Retry-After header — bucket empty)
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "dios",
+  "password": "WRONG_PASSWORD_6"
+}
+
 ### 1. Tambah Catatan Pengeluaran Baru
 POST http://localhost:8080/api/bill/add
 Content-Type: application/json

@@ -1,8 +1,11 @@
 package com.DTMK.Online.Bookkeeping.Website.Project.controller;
 
+import com.DTMK.Online.Bookkeeping.Website.Project.config.LoginRateLimitService;
 import com.DTMK.Online.Bookkeeping.Website.Project.entity.User;
 import com.DTMK.Online.Bookkeeping.Website.Project.mapper.UserMapper;
 import com.DTMK.Online.Bookkeeping.Website.Project.service.AuthService;
+import io.github.bucket4j.ConsumptionProbe;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,6 +23,24 @@ public class AuthController {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final AuthService authService;
+    private final LoginRateLimitService rateLimit;
+
+    /**
+     * Resolve the client's IP address. Honour {@code X-Forwarded-For}
+     * if a reverse proxy (nginx, Cloudflare, load balancer) is in
+     * front of Spring, otherwise fall back to {@code X-Real-IP} and
+     * finally the raw socket address.
+     */
+    private static String clientIp(HttpServletRequest req) {
+        String xff = req.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            int comma = xff.indexOf(',');
+            return (comma > 0 ? xff.substring(0, comma) : xff).trim();
+        }
+        String real = req.getHeader("X-Real-IP");
+        if (real != null && !real.isBlank()) return real.trim();
+        return req.getRemoteAddr();
+    }
 
     @PostMapping("/register")
     public ResponseEntity<Map<String, Object>> register(@RequestBody User request) {
@@ -43,17 +64,55 @@ public class AuthController {
      * attached as {@code Authorization: Bearer ...} on every request,
      * and the refresh token is only sent to {@code /refresh} when the
      * access token expires.
+     *
+     * <h2>Brute-force protection</h2>
+     * The {@link LoginRateLimitService} is consulted on every
+     * FAILED login attempt. Each failed attempt consumes one
+     * token from the per-IP bucket; after 5 failed attempts
+     * within 15 minutes, the next attempt returns
+     * {@code 429 Too Many Requests} with a {@code Retry-After}
+     * header. Successful logins do NOT consume a token, so a
+     * legitimate user who fat-fingers their password a few times
+     * is not locked out as long as they eventually get it right.
      */
     @PostMapping("/login")
-    public ResponseEntity<Map<String, Object>> login(@RequestBody User request) {
+    public ResponseEntity<Map<String, Object>> login(@RequestBody User request,
+                                                     HttpServletRequest httpRequest) {
         Map<String, Object> response = new HashMap<>();
+        String ip = clientIp(httpRequest);
+
+        // Look up the user FIRST so we can tell "unknown user" from
+        // "wrong password" — both consume a token, but the order
+        // doesn't matter for the rate limiter.
         User user = userMapper.findByUsername(request.getUsername());
 
-        if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        boolean ok = user != null
+                && passwordEncoder.matches(request.getPassword(), user.getPassword());
+
+        if (!ok) {
+            // FAILED login: consume one token from this IP's bucket.
+            // If the bucket is empty, return 429 immediately without
+            // even revealing whether the credentials were right or
+            // wrong (a small anti-enumeration bonus).
+            ConsumptionProbe probe = rateLimit.tryConsume(ip);
+            if (!probe.isConsumed()) {
+                long waitSeconds = (long) Math.ceil(
+                        probe.getNanosToWaitForRefill() / 1_000_000_000.0);
+                Map<String, Object> err = new HashMap<>();
+                err.put("error", "Too many failed login attempts from this IP. "
+                        + "Please try again in " + Math.max(1, waitSeconds / 60) + " minute(s).");
+                err.put("retryAfterSeconds", waitSeconds);
+                return ResponseEntity
+                        .status(429)
+                        .header("Retry-After", String.valueOf(waitSeconds))
+                        .body(err);
+            }
             response.put("error", "Incorrect username or password!");
             return ResponseEntity.status(401).body(response);
         }
 
+        // SUCCESSFUL login: do NOT touch the bucket. Legitimate
+        // users shouldn't be punished for their own typos.
         AuthService.TokenPair pair = authService.issueTokenPair(user);
 
         response.put("message", "Login successful");
