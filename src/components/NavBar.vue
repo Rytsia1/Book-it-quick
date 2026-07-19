@@ -32,6 +32,14 @@
 
     <!-- Right -->
     <div class="nav-right">
+      <!--
+        Global multi-currency selector. Sits in the nav so the chosen
+        display currency is consistent across every page; the
+        composable stores the choice in localStorage and shares the
+        rates cache with all components.
+      -->
+      <CurrencySelector />
+
       <span class="nav-user">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
@@ -53,6 +61,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import CurrencySelector from '@/components/CurrencySelector.vue'
 
 const router   = useRouter()
 const username = computed(() => localStorage.getItem('username') || 'user')

@@ -96,12 +96,12 @@
 
           <div v-if="budgetInput > 0" class="form-preview">
             <span class="form-preview__label">PREVIEW</span>
-            <span class="form-preview__value mono">{{ formatCurrencyUSD(budgetInput) }}</span>
+            <span class="form-preview__value mono">{{ fmt(budgetInput).primary }}</span>
           </div>
 
           <div v-if="savedBudget" class="form-current">
             <span class="form-current__label">CURRENT SAVED</span>
-            <span class="form-current__value mono">{{ formatCurrencyUSD(savedBudget) }}</span>
+            <span class="form-current__value mono">{{ fmt(savedBudget).primary }}</span>
           </div>
 
           <div class="form-actions">
@@ -152,11 +152,11 @@
             <div class="mini-stats">
               <div class="mini-stat">
                 <span class="mini-stat__label">BUDGET</span>
-                <span class="mini-stat__value mono">{{ formatCurrencyUSD(summary.monthlyBudget) }}</span>
+                <span class="mini-stat__value mono">{{ fmt(summary.monthlyBudget).primary }}</span>
               </div>
               <div class="mini-stat">
                 <span class="mini-stat__label">SPENT</span>
-                <span class="mini-stat__value mono text-red">{{ formatCurrencyUSD(summary.expense) }}</span>
+                <span class="mini-stat__value mono text-red">{{ fmt(summary.expense).primary }}</span>
               </div>
               <div class="mini-stat">
                 <span class="mini-stat__label">
@@ -166,7 +166,7 @@
                   class="mini-stat__value mono"
                   :class="summary.budgetExceeded ? 'text-red' : 'text-green'"
                 >
-                  {{ formatCurrencyUSD(Math.abs(summary.monthlyBudget - summary.expense)) }}
+                  {{ fmt(Math.abs(summary.monthlyBudget - summary.expense)).primary }}
                 </span>
               </div>
             </div>
@@ -230,16 +230,26 @@
             <span v-if="row.isCurrent" class="month-tag">CURRENT</span>
           </template>
         </el-table-column>
-        <el-table-column label="BUDGET" width="180">
+        <el-table-column label="BUDGET" width="190">
           <template #default="{ row }">
-            <span class="mono">{{ formatCurrencyUSD(row.budget) }}</span>
+            <div class="amount-cell">
+              <span class="mono amount-primary">{{ fmt(row.budget).primary }}</span>
+              <span v-if="fmt(row.budget).secondary" class="amount-secondary">
+                ≈ {{ fmt(row.budget).secondary }}
+              </span>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="ACTUAL SPENT" width="180">
+        <el-table-column label="ACTUAL SPENT" width="190">
           <template #default="{ row }">
-            <span class="mono" :class="row.usage > 100 ? 'text-red' : (row.usage > 80 ? 'text-amber' : 'text-green')">
-              {{ formatCurrencyUSD(row.actual) }}
-            </span>
+            <div class="amount-cell">
+              <span class="mono amount-primary" :class="row.usage > 100 ? 'text-red' : (row.usage > 80 ? 'text-amber' : 'text-green')">
+                {{ fmt(row.actual).primary }}
+              </span>
+              <span v-if="fmt(row.actual).secondary" class="amount-secondary">
+                ≈ {{ fmt(row.actual).secondary }}
+              </span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column label="USAGE" min-width="220">
@@ -288,6 +298,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { fmtAmount, useCurrency } from '@/composables/useCurrency'
 
 const router = useRouter()
 
@@ -353,6 +364,16 @@ const formatCurrencyUSD = (amount) => {
     minimumFractionDigits: 2, maximumFractionDigits: 2,
   }).format(amount)
 }
+
+/* ── Multi-currency (see composables/useCurrency.js) ─────────────
+ * `fmt(usdAmount)` returns:
+ *   { primary: 'Rp 15,842,312', secondary: '≈ $ 1,000.00', code: 'IDR', sign: '' }
+ *   { primary: '$ 50.00',         secondary: null,         code: 'USD' }  (USD selected)
+ * The `secondary` line is suppressed via `v-if` when the user has
+ * already picked USD, so we never show "$ 10.00 / $ 10.00".
+ */
+const { ensureRatesLoaded } = useCurrency()
+const fmt = (usdAmount, opts) => fmtAmount(usdAmount, opts)
 
 // ── Month navigation ────────────────────────────────────────────────
 const prevMonth = () => {
@@ -573,6 +594,9 @@ onMounted(async () => {
     router.push('/login')
     return
   }
+  // Make sure the rates are loaded so the formatter can render in the
+  // user's chosen currency on first paint.
+  await ensureRatesLoaded()
   await Promise.all([fetchSavedBudget(), fetchMonthSummary(), fetchHistory()])
 })
 </script>
@@ -1004,6 +1028,24 @@ onMounted(async () => {
 .text-amber { color: var(--amber) !important; }
 .text-green { color: var(--green) !important; }
 .text-ash   { color: var(--ash) !important; }
+
+/* Two-line amount cell (selected currency on top, USD as small gray
+   line beneath). The `secondary` line is hidden by `v-if` when the
+   user has already picked USD. */
+.amount-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  line-height: 1.15;
+}
+.amount-primary { font-size: 13px; }
+.amount-secondary {
+  font-size: 10px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.2px;
+}
 
 /* Responsive */
 @media (max-width: 1200px) {

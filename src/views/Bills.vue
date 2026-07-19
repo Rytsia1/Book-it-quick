@@ -52,11 +52,16 @@
             <span class="category-name">{{ row.category }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="AMOUNT" width="180">
+        <el-table-column label="AMOUNT" width="190">
           <template #default="{ row }">
-            <span :class="['mono', 'fw-600', row.type === 1 ? 'text-green' : 'text-red']">
-              {{ row.type === 1 ? '+' : '-' }}{{ formatCurrency(row.amount) }}
-            </span>
+            <div class="amount-cell">
+                <span :class="['mono', 'fw-600', 'amount-primary', row.type === 1 ? 'text-green' : 'text-red']">
+                  {{ fmtSigned(row.amount, row.type === 1 ? '+' : '-').primary }}
+                </span>
+              <span v-if="fmt(row.amount).secondary" class="amount-secondary">
+                ≈ {{ fmt(row.amount).secondary }}
+              </span>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="description" label="DESCRIPTION" min-width="200" show-overflow-tooltip />
@@ -114,6 +119,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
 import BillDialog from '@/components/BillDialog.vue'
+import { fmtAmount, fmtSigned, useCurrency } from '@/composables/useCurrency'
 
 const router = useRouter()
 
@@ -183,6 +189,16 @@ const formatCurrency = (amount) => {
     minimumFractionDigits: 2, maximumFractionDigits: 2,
   }).format(amount)
 }
+
+/* ── Multi-currency (see composables/useCurrency.js) ─────────────
+ * `fmt(usdAmount)` returns:
+ *   { primary: 'Rp 15,842,312', secondary: '≈ $ 1,000.00', code: 'IDR', sign: '' }
+ *   { primary: '$ 50.00',         secondary: null,         code: 'USD' }  (USD selected)
+ * The `secondary` line is suppressed via `v-if` when the user has
+ * already picked USD, so we never show "$ 10.00 / $ 10.00".
+ */
+const { ensureRatesLoaded } = useCurrency()
+const fmt = (usdAmount, opts) => fmtAmount(usdAmount, opts)
 
 const navigateToCategories = () => router.push('/categories')
 
@@ -275,7 +291,12 @@ const handleDelete = (id) => {
   }).catch(() => {})
 }
 
-onMounted(() => { fetchBills() })
+onMounted(() => {
+  // Make sure the rates are loaded so the formatter can render in the
+  // user's chosen currency on first paint. Safe to call repeatedly.
+  ensureRatesLoaded()
+  fetchBills()
+})
 </script>
 
 <style scoped>
@@ -445,6 +466,24 @@ onMounted(() => { fetchBills() })
 .fw-600 { font-weight: 600 !important; }
 .text-green { color: var(--green) !important; }
 .text-red   { color: var(--red) !important; }
+
+/* Two-line amount cell (selected currency on top, USD as small gray
+   line beneath). When the user has already picked USD, the secondary
+   line is removed by the template (v-if). */
+.amount-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  line-height: 1.15;
+}
+.amount-primary { font-size: 13px; }
+.amount-secondary {
+  font-size: 10px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.2px;
+}
 
 /* Action cell */
 .actions-cell { display: flex; gap: 6px; }

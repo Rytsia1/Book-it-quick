@@ -15,7 +15,7 @@
         </div>
         <div class="alert-bar__body">
           <strong>{{ monthlySummary.budgetExceeded ? 'BUDGET EXCEEDED' : 'BUDGET WARNING' }}</strong>
-          <span>Expenses {{ formatCurrencyUSD(monthlySummary.expense) }} of {{ formatCurrencyUSD(monthlySummary.monthlyBudget) }} ({{ (monthlySummary.budgetUsedPercent || 0).toFixed(1) }}%)</span>
+          <span>Expenses {{ fmt(monthlySummary.expense).primary }} of {{ fmt(monthlySummary.monthlyBudget).primary }} ({{ (monthlySummary.budgetUsedPercent || 0).toFixed(1) }}%)</span>
         </div>
         <button class="alert-bar__close" @click="dismissAlert">✕</button>
       </div>
@@ -56,12 +56,22 @@
         </p>
         <p class="stat-card__sub">monthly</p>
       </div>
+      <!--
+        NET BALANCE card: shows the converted (selected-currency) value
+        as the big primary text and the canonical USD value as a small
+        gray line beneath. Same shape is reused everywhere a monetary
+        amount is displayed in this app; see useCurrency.js.
+      -->
       <div class="stat-card">
         <p class="stat-card__label">NET BALANCE</p>
-        <p class="stat-card__value mono" :class="monthlySummary.balance >= 0 ? 'value--green' : 'value--red'">
-          {{ formatCurrencyUSD(monthlySummary.balance) }}
+        <p class="stat-card__value mono"
+           :class="monthlySummary.balance >= 0 ? 'value--green' : 'value--red'">
+          {{ fmtSigned(monthlySummary.balance, monthlySummary.balance >= 0 ? '' : '-').primary }}
         </p>
-        <p class="stat-card__sub">{{ lastUpdate }}</p>
+        <p v-if="fmt(monthlySummary.balance).secondary" class="stat-card__sub stat-card__sub--converted">
+          ≈ {{ fmt(monthlySummary.balance).secondary }}
+        </p>
+        <p v-else class="stat-card__sub">{{ lastUpdate }}</p>
       </div>
     </div>
 
@@ -89,11 +99,16 @@
             </template>
           </el-table-column>
           <el-table-column prop="category" label="CATEGORY" width="130" />
-          <el-table-column label="AMOUNT" width="160">
+          <el-table-column label="AMOUNT" width="180">
             <template #default="{ row }">
-              <span :class="['mono', 'fw-600', row.type === 1 ? 'text-green' : 'text-red']">
-                {{ row.type === 1 ? '+' : '-' }}{{ formatCurrencyUSD(row.amount) }}
-              </span>
+              <div class="amount-cell">
+                <span :class="['mono', 'fw-600', 'amount-primary', row.type === 1 ? 'text-green' : 'text-red']">
+                  {{ fmtSigned(row.amount, row.type === 1 ? '+' : '-').primary }}
+                </span>
+                <span v-if="fmt(row.amount).secondary" class="amount-secondary">
+                  ≈ {{ fmt(row.amount).secondary }}
+                </span>
+              </div>
             </template>
           </el-table-column>
           <el-table-column prop="description" label="DESCRIPTION" min-width="160" show-overflow-tooltip />
@@ -113,18 +128,33 @@
           <div class="kv-list">
             <div class="kv-row">
               <span class="kv-key">INCOME</span>
-              <span class="kv-val mono text-green">+{{ formatCurrencyUSD(monthlySummary.income) }}</span>
+              <div class="kv-amount">
+                <span class="kv-val mono text-green">{{ fmtSigned(monthlySummary.income, '+').primary }}</span>
+                <span v-if="fmt(monthlySummary.income).secondary" class="kv-amount__sub">
+                  ≈ {{ fmt(monthlySummary.income).secondary }}
+                </span>
+              </div>
             </div>
             <div class="kv-row">
               <span class="kv-key">EXPENSE</span>
-              <span class="kv-val mono text-red">-{{ formatCurrencyUSD(monthlySummary.expense) }}</span>
+              <div class="kv-amount">
+                <span class="kv-val mono text-red">{{ fmtSigned(monthlySummary.expense, '-').primary }}</span>
+                <span v-if="fmt(monthlySummary.expense).secondary" class="kv-amount__sub">
+                  ≈ {{ fmt(monthlySummary.expense).secondary }}
+                </span>
+              </div>
             </div>
             <div class="kv-divider"></div>
             <div class="kv-row">
               <span class="kv-key">BALANCE</span>
-              <span class="kv-val mono fw-700" :class="monthlySummary.balance >= 0 ? 'text-green' : 'text-red'">
-                {{ formatCurrencyUSD(monthlySummary.balance) }}
-              </span>
+              <div class="kv-amount">
+                <span class="kv-val mono fw-700" :class="monthlySummary.balance >= 0 ? 'text-green' : 'text-red'">
+                  {{ fmtSigned(monthlySummary.balance, monthlySummary.balance >= 0 ? '+' : '-').primary }}
+                </span>
+                <span v-if="fmt(monthlySummary.balance).secondary" class="kv-amount__sub">
+                  ≈ {{ fmt(monthlySummary.balance).secondary }}
+                </span>
+              </div>
             </div>
 
             <!-- Budget -->
@@ -133,7 +163,12 @@
               <div class="budget-block">
                 <div class="budget-block__header">
                   <span class="kv-key">BUDGET</span>
-                  <span class="kv-val mono">{{ formatCurrencyUSD(monthlySummary.monthlyBudget) }}</span>
+                  <div class="kv-amount">
+                    <span class="kv-val mono">{{ fmt(monthlySummary.monthlyBudget).primary }}</span>
+                    <span v-if="fmt(monthlySummary.monthlyBudget).secondary" class="kv-amount__sub">
+                      ≈ {{ fmt(monthlySummary.monthlyBudget).secondary }}
+                    </span>
+                  </div>
                 </div>
                 <div class="budget-track">
                   <div
@@ -153,10 +188,10 @@
                   }">{{ (monthlySummary.budgetUsedPercent || 0).toFixed(1) }}% used</span>
                   <span class="text-ash mono">
                     <template v-if="!monthlySummary.budgetExceeded">
-                      remaining {{ formatCurrencyUSD(monthlySummary.monthlyBudget - monthlySummary.expense) }}
+                      remaining {{ fmt(monthlySummary.monthlyBudget - monthlySummary.expense).primary }}
                     </template>
                     <template v-else>
-                      over by {{ formatCurrencyUSD(monthlySummary.expense - monthlySummary.monthlyBudget) }}
+                      over by {{ fmt(monthlySummary.expense - monthlySummary.monthlyBudget).primary }}
                     </template>
                   </span>
                 </div>
@@ -198,9 +233,14 @@
               <div class="upcoming-body">
                 <div class="upcoming-top">
                   <span class="upcoming-name">{{ b.category || b.description || 'Bill' }}</span>
-                  <span :class="['mono', 'fw-600', 'upcoming-amount', b.type === 1 ? 'text-green' : 'text-red']">
-                    {{ b.type === 1 ? '+' : '-' }}{{ formatCurrencyUSD(b.amount) }}
-                  </span>
+                  <div class="upcoming-amount">
+                    <span :class="['mono', 'fw-600', 'amount-primary', b.type === 1 ? 'text-green' : 'text-red']">
+                      {{ fmtSigned(b.amount, b.type === 1 ? '+' : '-').primary }}
+                    </span>
+                    <span v-if="fmt(b.amount).secondary" class="amount-secondary">
+                      ≈ {{ fmt(b.amount).secondary }}
+                    </span>
+                  </div>
                 </div>
                 <div class="upcoming-bottom">
                   <span class="upcoming-date">{{ formatDueDate(b.dueDate) }}</span>
@@ -258,7 +298,7 @@
             />
           </el-form-item>
           <p v-if="budgetInput > 0" class="budget-preview">
-            {{ formatCurrencyUSD(budgetInput) }}
+            {{ fmt(budgetInput).primary }}
           </p>
         </el-form>
       </div>
@@ -280,6 +320,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 import BillDialog from '@/components/BillDialog.vue'
+import { fmtAmount, fmtSigned, useCurrency } from '@/composables/useCurrency'
 
 const router = useRouter()
 
@@ -316,6 +357,24 @@ const currentDate = computed(() => {
   return today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 })
 
+// Tie-breaker: when two bills share a billDate, the one with the more
+// recent `createdAt` wins. `createdAt` is a LocalDateTime on the server
+// (ISO string on the wire), so `new Date(...)` parses it correctly. The
+// final `id DESC` keeps ordering fully deterministic for any legacy rows
+// where `createdAt` happens to be null.
+const toMillis = (v) => {
+  if (!v) return 0
+  const t = new Date(v).getTime()
+  return Number.isFinite(t) ? t : 0
+}
+const compareBillsDesc = (a, b) => {
+  const d = new Date(b.billDate) - new Date(a.billDate)
+  if (d !== 0) return d
+  const c = toMillis(b.createdAt) - toMillis(a.createdAt)
+  if (c !== 0) return c
+  return (b.id ?? 0) - (a.id ?? 0)
+}
+
 // Show the 14 most recent transactions, newest first.
 // The `.slice()` before `.sort()` prevents mutating the original `bills` array
 // (which other computeds/watches rely on). The panel uses flex stretching
@@ -323,7 +382,7 @@ const currentDate = computed(() => {
 const recentBills = computed(() =>
   bills.value
     .slice()
-    .sort((a, b) => new Date(b.billDate) - new Date(a.billDate)) // newest first
+    .sort(compareBillsDesc) // newest first, with same-day tie-breaker
     .slice(0, 14)
 )
 const totalTransactions = computed(() => bills.value.length)
@@ -350,6 +409,18 @@ const formatCurrencyUSD = (amount) => {
   if (amount == null) return '$ 0'
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
 }
+
+/* ── Multi-currency ────────────────────────────────────────────────
+ * `fmt(usdAmount)` returns:
+ *   { primary: 'Rp 15,842,312', secondary: '≈ $ 1,000.00', code: 'IDR', sign: '' }
+ *   { primary: '+Rp 1,500,000', secondary: '≈ $ 100.00', code: 'IDR', sign: '+' }
+ *   { primary: '$ 50.00',         secondary: null,        code: 'USD', sign: '' } (USD selected)
+ * `secondary` is `null` when the user has already picked USD, so the
+ * template can `<small v-if="fmt(x).secondary">…</small>` to suppress
+ * the duplicate line. See composables/useCurrency.js for details.
+ */
+const { ensureRatesLoaded } = useCurrency()
+const fmt = (usdAmount, opts) => fmtAmount(usdAmount, opts)
 
 const billDialogVisible    = ref(false)
 const openBillDialog        = () => { billDialogVisible.value = true }
@@ -419,7 +490,9 @@ const fetchBills = async () => {
     loading.value = true
     const userId = localStorage.getItem('userId')
     const data = await request.get('/bills', { params: { userId } })
-    bills.value = Array.isArray(data) ? data.sort((a, b) => new Date(b.billDate) - new Date(a.billDate)) : []
+    // Use the shared `compareBillsDesc` so the underlying `bills` list
+    // is also newest-first within the same day, not just `recentBills`.
+    bills.value = Array.isArray(data) ? data.sort(compareBillsDesc) : []
   } catch (e) {
     ElMessage.error('Failed to load bills')
   } finally {
@@ -567,7 +640,13 @@ const fetchRecurringBills = async () => {
   }
 }
 
-onMounted(() => { fetchBills(); fetchMonthlySummary(); fetchRecurringBills() })
+onMounted(() => {
+  // Make sure the rates are loaded so the multi-currency formatter can
+  // render right away on first paint. Safe to call multiple times — the
+  // composable de-duplicates the fetch.
+  ensureRatesLoaded()
+  fetchBills(); fetchMonthlySummary(); fetchRecurringBills()
+})
 </script>
 
 <style scoped>
@@ -759,6 +838,13 @@ onMounted(() => { fetchBills(); fetchMonthlySummary(); fetchRecurringBills() })
   color: var(--white);
   line-height: 1;
   margin-bottom: 8px;
+  /* Keep the sign glued to the number. The default browser line-break
+     rules treat U+002D (the ASCII hyphen in "-$169,648.00") as a
+     soft wrap point, so at 40px the string can break between the "-"
+     and the value, producing a "-" on one line and "$169,648.00" on
+     the next. nowrap prevents that without affecting the other
+     (short) stat-card values (22, 21, DEFICIT). */
+  white-space: nowrap;
 }
 
 .stat-card__sub {
@@ -934,6 +1020,55 @@ onMounted(() => { fetchBills(); fetchMonthlySummary(); fetchRecurringBills() })
   font-weight: 600;
   color: var(--ember);
   margin-top: 4px;
+}
+
+/* ── Multi-currency: two-line amount cell ─────────────────────────
+ * Reused everywhere a monetary amount is shown. The primary line is
+ * the user's selected currency (big), the secondary line is the
+ * canonical USD value (small, gray). When the user has already picked
+ * USD the secondary line is removed by the template (v-if), so it
+ * never reads "$ 10.00 / $ 10.00".
+ */
+.amount-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  line-height: 1.15;
+}
+.amount-primary { font-size: 13px; }
+.amount-secondary {
+  font-size: 10px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.2px;
+}
+
+.kv-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  line-height: 1.15;
+}
+.kv-amount__sub {
+  font-size: 10px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+.stat-card__sub--converted {
+  font-family: var(--font-mono);
+  letter-spacing: 0.2px;
+}
+
+.upcoming-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  line-height: 1.15;
+  flex-shrink: 0;
 }
 
 /* ── Utilities ── */

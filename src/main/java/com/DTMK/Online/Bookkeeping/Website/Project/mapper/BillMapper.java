@@ -24,7 +24,10 @@ import java.util.List;
 public interface BillMapper {
 
     // Read: retrieves live (non-trashed) bills by user ID.
-    @Select("SELECT * FROM t_bill WHERE user_id = #{userId} AND is_deleted = 0 ORDER BY bill_date DESC")
+    // Secondary sort by created_at DESC so that transactions recorded on
+    // the same bill_date still come back newest-first (otherwise the DB
+    // returns them in an undefined/insertion order within a day).
+    @Select("SELECT * FROM t_bill WHERE user_id = #{userId} AND is_deleted = 0 ORDER BY bill_date DESC, created_at DESC")
     List<Bill> findBillsByUserId(Integer userId);
 
     // ── Pagination support ─────────────────────────────────────────────

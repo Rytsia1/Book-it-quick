@@ -99,3 +99,19 @@ CREATE TABLE IF NOT EXISTS t_category (
     KEY idx_user_type (user_id, type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='User-defined transaction categories';
+
+-- 6) Exchange rates (multi-currency)
+-- One row per target currency, expressed as "1 USD = rate * <code>".
+-- The CurrencyScheduler in config/ refreshes every supported code
+-- once a day at 11:00 Asia/Jakarta. currency_code is the natural unique
+-- key — the sync service upserts (insert if missing, update otherwise)
+-- so this table is safe to (re)create idempotently.
+CREATE TABLE IF NOT EXISTS exchange_rate (
+    id            INT           NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+    currency_code VARCHAR(8)    NOT NULL                COMMENT 'ISO 4217 code, e.g. IDR, EUR, JPY',
+    rate          DECIMAL(20,8) NOT NULL                COMMENT '1 USD = rate * target_currency',
+    last_updated  DATETIME      NOT NULL                COMMENT 'Timestamp of the last successful sync',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_currency_code (currency_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='USD-based exchange rates, refreshed daily by CurrencyScheduler';
