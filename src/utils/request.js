@@ -75,6 +75,20 @@ function emitAuthFailure(detail) {
  * Decide whether a given request URL is one of the auth endpoints
  * that should NOT trigger a silent refresh on 401 (we'd just recurse
  * into /refresh forever, or fight the Login.vue flow).
+ *
+ * Why /exchange-rates is in this list
+ * -----------------------------------
+ * The /api/exchange-rates endpoint is publicly readable (it serves a
+ * cron-populated cache, no per-user data). Even so, if the backend
+ * is ever misconfigured to require auth, a 401 here would otherwise
+ * trigger the silent-refresh interceptor, which on failure wipes
+ * the access/refresh tokens and bounces the user to /login — even
+ * though they were just authenticated. That's the original
+ * "after loading the new currency rate, I can't get to the login
+ * page" bug. Treating /exchange-rates as an "auth" endpoint for
+ * 401-handling purposes means a 401 here is a soft error that
+ * useCurrency.js already handles (falls back to USD + shows the
+ * "Retry" hint), instead of a session-destroying event.
  */
 function isAuthEndpoint(url) {
     if (!url) return false
@@ -82,6 +96,7 @@ function isAuthEndpoint(url) {
         || url.includes('/auth/login')
         || url.includes('/auth/register')
         || url.includes('/auth/logout')
+        || url.includes('/exchange-rates')
 }
 
 // ──────────────────────────── Response interceptor ────────────────────────────
@@ -132,8 +147,22 @@ instance.interceptors.response.use(
 // token dies would see a flash of 401-retry on every click.
 const REFRESH_LEAD_MS = 60 * 1000
 let proactiveTimer = null
+// Tombstone: when true, scheduleProactiveRefresh() and the timer's
+// callback become no-ops. NavBar's handleLogout() flips this on
+// before doing window.location.href = '/login', so a scheduled
+// refresh that would otherwise fire DURING the 50 ms pre-reload
+// window can't run refreshAccessToken() and write fresh tokens
+// back to localStorage via auth.setTokens(). Combined with the
+// loggedOut flag in auth.js, this is the second layer of defense
+// against the "token re-appears after logout" bug.
+let proactiveRefreshCancelled = false
 
 function scheduleProactiveRefresh() {
+    // If logout already fired, do nothing. The next time the page
+    // loads, this module is re-initialised and the flag is false
+    // again — which is exactly what we want, because by then the
+    // user has logged out and gone to /login.
+    if (proactiveRefreshCancelled) return
     if (proactiveTimer) {
         clearTimeout(proactiveTimer)
         proactiveTimer = null
@@ -142,10 +171,42 @@ function scheduleProactiveRefresh() {
     if (ms <= 0) return
     const delay = Math.max(ms - REFRESH_LEAD_MS, 0)
     proactiveTimer = setTimeout(() => {
+        // Re-check the tombstone: the timer may have been
+        // scheduled before logout but fire AFTER it. Without this
+        // re-check, the callback would race against the wipe and
+        // re-populate localStorage.
+        if (proactiveRefreshCancelled) return
         refreshAccessToken()
             .then(scheduleProactiveRefresh)   // chain to schedule the next one
             .catch(() => { /* request interceptor handles the redirect */ })
     }, delay)
+}
+
+/**
+ * Cancel the proactive refresh scheduler. Called from
+ * NavBar.handleLogout() (and anywhere else that needs to ensure
+ * no scheduled refresh can fire after a wipe). Safe to call
+ * multiple times.
+ *
+ * What it does:
+ *  1. Clears the pending setTimeout (the timer's callback cannot
+ *     fire after this returns).
+ *  2. Sets the tombstone flag so a re-schedule triggered by the
+ *     `visibilitychange` listener (which only fires when the tab
+ *     regains focus, so it shouldn't be reachable after a
+ *     window.location.href reload — but defence in depth) also
+ *     becomes a no-op.
+ *  3. Leaves the in-flight refresh promise alone; that's owned by
+ *     auth.js's resetRefreshState() (called separately) and by the
+ *     loggedOut flag in setTokens() (which makes the resolved
+ *     promise's .then a no-op anyway).
+ */
+export function cancelScheduledRefresh() {
+    proactiveRefreshCancelled = true
+    if (proactiveTimer) {
+        clearTimeout(proactiveTimer)
+        proactiveTimer = null
+    }
 }
 
 // Re-schedule whenever the user comes back to the tab. The browser

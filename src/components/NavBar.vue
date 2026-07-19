@@ -87,11 +87,17 @@
 import { computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+// Cross-module cleanup hooks. We import them here (not inside the
+// handler) so the import cost is paid once at module load, not on
+// every logout click.
+import { cancelScheduledRefresh } from '@/utils/request'
+import { cancelAutoRetry } from '@/composables/useCurrency'
+import { resetRefreshState } from '@/utils/auth'
 import CurrencySelector from '@/components/CurrencySelector.vue'
 import {
     getAccessToken,
     getRefreshToken,
-    clearAllAuth,
+    wipeAllLocalStorage,
 } from '@/utils/auth'
 
 const router   = useRouter()
@@ -119,20 +125,45 @@ const handleLogout = () => {
     // didn't visibly change.
     //
     // The fix is to do everything synchronously inside the .then
-    // callback: capture the tokens, wipe local state, queue the
-    // navigation, schedule the toast for the next tick (so it
+    // callback: cancel the proactive-refresh + auto-retry timers,
+    // cancel any in-flight silent refresh, wipe local state, queue
+    // the navigation, schedule the toast for the next tick (so it
     // renders on the new /login view), and fire the server-side
     // revoke in the background.
+
+    // 0) Cancel the cross-module timers and the in-flight refresh
+    //    BEFORE wiping localStorage. This is the critical fix for
+    //    the "token re-appears after logout" bug:
+    //      - cancelScheduledRefresh() clears the proactive-refresh
+    //        setTimeout (which, if it fired, would call
+    //        refreshAccessToken() → setTokens() and silently
+    //        re-populate the tokens).
+    //      - resetRefreshState() drops the single-flight
+    //        refreshInFlight promise so any silent refresh that's
+    //        already mid-flight (and about to call setTokens()) is
+    //        detached. (Even if it lands after the wipe, the
+    //        loggedOut tombstone flag in auth.js blocks the write.)
+    //      - cancelAutoRetry() clears the 60s exchange-rates
+    //        retry interval. Hygiene, not security.
+    //    Order matters: cancel first, then wipe, so the timers
+    //    can't sneak in a setTokens() call between the cancel and
+    //    the wipe.
+    cancelScheduledRefresh()
+    resetRefreshState()
+    cancelAutoRetry()
 
     // 1) Capture tokens BEFORE wiping, so the background revoke
     //    request can still authenticate.
     const accessToken  = getAccessToken()
     const refreshToken = getRefreshToken()
 
-    // 2) Wipe local state immediately. This drops userId, so any
-    //    in-flight request that 401s after this point can't
-    //    re-trigger the silent-refresh interceptor with stale data.
-    clearAllAuth()
+    // 2) Wipe local state. We use wipeAllLocalStorage() (a
+    //    superset of clearAllAuth) so every known key — including
+    //    the legacy `token` key that the router guard checks for
+    //    — is gone, AND the loggedOut tombstone flag in auth.js
+    //    is raised so a racing setTokens() that somehow runs
+    //    after this is a no-op.
+    wipeAllLocalStorage()
 
     // 3) Fire the toast SYNCHRONOUSLY. `el-message` is appended to
     //    document.body in the same microtask, so the toast is in

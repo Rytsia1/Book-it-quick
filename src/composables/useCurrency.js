@@ -37,8 +37,14 @@ import request from '@/utils/request'
  *   hiccup self-heals without a page refresh.
  */
 
+// Per product decision on 2026-07-19: the preferred display currency
+// is force-set to USD for ALL users (new and existing). Any value
+// previously stored under `preferredCurrency` in localStorage is
+// overwritten on module load, and the default for fresh sessions is
+// also USD. Users can still change the dropdown at runtime — the
+// choice is then persisted normally via setCurrency().
 const STORAGE_KEY = 'preferredCurrency'
-const DEFAULT_CURRENCY = 'IDR'
+const DEFAULT_CURRENCY = 'USD'
 const RETRY_INTERVAL_MS = 60_000   // 1 minute
 
 // Module-scoped state (one fetch shared by every component on the page).
@@ -70,12 +76,28 @@ const LOCALE_MAP = {
   HKD: 'en-HK',
 }
 
-// The user's choice. Initialised from localStorage; falls back to
-// the default if nothing's stored or the stored value is unknown.
-const stored = (() => {
-  try { return localStorage.getItem(STORAGE_KEY) } catch { return null }
-})()
-const selectedCurrency = ref(stored || DEFAULT_CURRENCY)
+// The user's choice.
+//
+// Per the 2026-07-19 product decision documented at the top of
+// this file, the preferred display currency is FORCE-set to USD
+// on every page load — for new users AND for users who had
+// previously picked something else. The dropdown at runtime is
+// still functional (the user can change it back if they want, and
+// the choice is then persisted via setCurrency()), but the next
+// reload will reset it to USD again. That "force every reload"
+// behaviour is intentional and matches the product spec.
+//
+// The previous (pre-force) behaviour was:
+//
+//   const stored = (() => {
+//     try { return localStorage.getItem(STORAGE_KEY) } catch { return null }
+//   })()
+//   const selectedCurrency = ref(stored || DEFAULT_CURRENCY)
+//
+// If the product ever reverses this decision, restore the lines
+// above and delete the two lines below.
+try { localStorage.setItem(STORAGE_KEY, DEFAULT_CURRENCY) } catch { /* ignore quota errors */ }
+const selectedCurrency = ref(DEFAULT_CURRENCY)
 
 // 60-second auto-retry bookkeeping. The timer is created on the
 // first failure and cleared on the next success, so a recovered
@@ -98,6 +120,25 @@ function clearRetryTimer() {
     clearInterval(retryTimerId)
     retryTimerId = null
   }
+}
+
+/**
+ * Cancel the 60-second background auto-retry. Called from the
+ * logout flow (NavBar.handleLogout) so a long-lived timer on a
+ * wiped session can't keep firing /exchange-rates fetches every
+ * minute.
+ *
+ * Safe to call when no timer is scheduled: clearRetryTimer is
+ * a no-op in that case.
+ *
+ * Note: this is hygiene, not security. /exchange-rates is
+ * whitelisted in request.js's isAuthEndpoint() so a 401 there
+ * cannot trigger the silent-refresh / wipe / redirect path.
+ * Cancelling the timer is just a "stop doing pointless work"
+ * cleanup.
+ */
+export function cancelAutoRetry() {
+  clearRetryTimer()
 }
 
 /**

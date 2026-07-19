@@ -106,6 +106,16 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
+                // Exchange rates are public data — the table is written by a
+                // server-side cron job (CurrencyScheduler) and contains no
+                // per-user information, so it must be reachable by the
+                // CurrencySelector mounted in the navbar on every page.
+                // Without this, the request fires before the access-token
+                // attach is reliable on a cold load, the 401 triggers the
+                // silent-refresh-on-401 interceptor, the refresh fails (or
+                // succeeds but still 401s on the retry), and the user gets
+                // bounced to /login even though they were just authenticated.
+                .requestMatchers("/api/exchange-rates", "/api/exchange-rates/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )

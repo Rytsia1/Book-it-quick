@@ -53,6 +53,32 @@ export function getAccessTokenExpiresAt() {
     return v ? Number(v) : 0
 }
 
+// ──────────────────────────── Logged-out tombstone ────────────────────────────
+//
+// Defense in depth against a nasty class of bug: a silent refresh or a
+// proactive refresh scheduler that fires AFTER clearAllAuth() /
+// wipeAllLocalStorage() has run, and writes fresh tokens back to
+// localStorage — silently re-authenticating a user who just clicked
+// Logout. The router guard then sees `hasAuth === true` on the
+// freshly-loaded /login page and bounces them right back to
+// /dashboard.
+//
+// `loggedOut` is a module-scoped flag. It is set by clearAllAuth() /
+// wipeAllLocalStorage() and cleared by the next setTokens() (which is
+// called from a successful /auth/login or /auth/refresh). While it is
+// true, the FIRST setTokens() call after the wipe is a no-op: even if
+// some forgotten code path or racing timer tries to write tokens, the
+// write is rejected.
+let loggedOut = false
+
+/**
+ * @returns {boolean} true if a logout has been performed in this
+ *   JS context and no successful login has happened since.
+ */
+export function wasLoggedOut() {
+    return loggedOut
+}
+
 /**
  * RBAC: returns the current user's role as a plain string
  * ({@code "USER"} or {@code "ADMIN"}), or {@code "USER"} as a
@@ -67,6 +93,16 @@ export function getRole() {
 }
 
 export function setTokens({ accessToken, refreshToken, accessTokenExpiresAt, role }) {
+    // Tombstone guard: a logout has already happened in this
+    // context. The first setTokens() call after a wipe is a no-op
+    // AND clears the flag, so the NEXT setTokens() (the real login
+    // from Login.vue) is honored. This is the key behavior: a stale
+    // proactive-refresh .then that lands after the wipe is
+    // rejected, while a genuine user login still works.
+    if (loggedOut) {
+        loggedOut = false
+        return
+    }
     if (accessToken) localStorage.setItem(ACCESS_KEY, accessToken)
     if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken)
     if (accessTokenExpiresAt) localStorage.setItem(EXPIRES_KEY, String(accessTokenExpiresAt))
@@ -102,12 +138,18 @@ export function clearTokens() {
  * Full sign-out: wipes tokens AND identity. Called only from the
  * explicit Logout button (NavBar.vue / Dashboard.vue), never from
  * the silent-refresh interceptor.
+ *
+ * Also raises the logged-out tombstone flag so a racing silent-
+ * refresh or proactive-refresh .then that lands AFTER this call
+ * cannot write a fresh token pair back into localStorage and
+ * silently re-authenticate the user.
  */
 export function clearAllAuth() {
     clearTokens()
     localStorage.removeItem(USERNAME_KEY)
     localStorage.removeItem(USERID_KEY)
     localStorage.removeItem(ROLE_KEY)   // RBAC: also wipe the role
+    loggedOut = true                    // tombstone: block any future setTokens()
 }
 
 /**
@@ -178,6 +220,15 @@ export function wipeAllLocalStorage() {
 
     // 3) Same in sessionStorage.
     try { sessionStorage.clear() } catch (_) { /* disabled in some browsers */ }
+
+    // 4) Tombstone: even after a hard reload destroys the JS
+    //    context (and therefore this flag), the next page load sees
+    //    a fully empty localStorage, so the router guard won't
+    //    bounce the user back to /dashboard. The flag is mainly
+    //    useful for the in-memory window between clearTokens() and
+    //    the hard reload — without it, a racing silent refresh that
+    //    resolves during that window would re-populate the tokens.
+    loggedOut = true
 }
 
 // ──────────────────────────── Refresh mechanism ────────────────────────────
@@ -230,6 +281,12 @@ export function refreshAccessToken() {
             // different role (e.g. an admin demoted the user mid-
             // session). Carry the role forward so the NavBar / router
             // guard see the up-to-date value.
+            //
+            // NOTE: if a logout happened between the start of this
+            // request and now, setTokens() will see the loggedOut
+            // tombstone flag and refuse to write the new pair back
+            // to localStorage. The flag is then cleared so the
+            // next genuine login still works.
             setTokens({
                 accessToken,
                 refreshToken: newRefreshToken,
@@ -244,6 +301,16 @@ export function refreshAccessToken() {
         })
 
     return refreshInFlight
+}
+
+/**
+ * Drop the in-flight refresh promise (if any) so a logout that
+ * races with a silent refresh can no longer cause the resolved
+ * promise to re-populate the tokens via setTokens(). Safe to call
+ * when nothing is in flight.
+ */
+export function resetRefreshState() {
+    refreshInFlight = null
 }
 
 /**
