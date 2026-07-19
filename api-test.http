@@ -84,6 +84,54 @@ Content-Type: application/json
   "password": "WRONG_PASSWORD_6"
 }
 
+### ── STRICT INPUT VALIDATION (Jakarta Bean Validation) ──
+###
+### Login requests are validated at the controller boundary via
+### @Valid @RequestBody LoginRequest. The @NotBlank, @Size, and
+### @Pattern annotations on the DTOs reject XSS payloads, oversized
+### strings, and missing fields BEFORE the request reaches the
+### service layer. Failures return 400 with a per-field error
+### response from GlobalExceptionHandler.handleValidation().
+###
+### To manually test: hit /api/auth/login with the following bodies
+### (one per line of the snippet) and observe a 400 response each.
+
+### Empty body — 400 with fieldErrors for both username and password
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "",
+  "password": ""
+}
+
+### Username too short (1 char) — 400 "Username must be 3-20 characters"
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "a",
+  "password": "abcdef"
+}
+
+### Username with XSS payload (`<script>...`) — 400 "Username can only contain letters, digits, ..."
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "<script>alert(1)</script>",
+  "password": "abcdef"
+}
+
+### Oversized username (1000 chars) — 400 "Username must be 3-20 characters"
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "password": "abcdef"
+}
+
 ### 1. Tambah Catatan Pengeluaran Baru
 POST http://localhost:8080/api/bill/add
 Content-Type: application/json

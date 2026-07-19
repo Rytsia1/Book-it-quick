@@ -20,7 +20,9 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Centralized error handler for the bookkeeping REST API.
@@ -90,12 +92,64 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, message, request);
     }
 
-    /** Triggered by {@code @Valid} on a request body (forward-compatible). */
+    /**
+     * Triggered by {@code @Valid} on a request body. The default
+     * Spring response is verbose and exposes internal field names
+     * (e.g. {@code "field": "user.password"}) without any guidance.
+     * We transform it into a clean envelope with per-field error
+     * details so the frontend can attach each error to the right
+     * form field (e.g. show "Username must be 3-20 characters"
+     * inline under the username input).
+     * <p>
+     * Response shape:
+     * <pre>{@code
+     * {
+     *   "success": false,
+     *   "message": "username: Username can only contain ...",
+     *   "status":  400,
+     *   "path":    "/api/auth/login",
+     *   "timestamp": "...",
+     *   "details": {
+     *     "fieldErrors": [
+     *       { "field": "username", "message": "Username can only contain ..." },
+     *       { "field": "password", "message": "Password must be 6-100 characters" }
+     *     ]
+     *   }
+     * }
+     * }</pre>
+     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex, WebRequest request) {
-        String message = "Validation failed: " + ex.getBindingResult().getFieldErrorCount() + " field error(s)";
-        log.warn("MethodArgumentNotValidException at {}: {}", path(request), message);
-        return build(HttpStatus.BAD_REQUEST, message, request);
+        // Collect every per-field error into a clean list.
+        List<Map<String, String>> fieldErrors = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(fe -> {
+                    Map<String, String> m = new HashMap<>();
+                    m.put("field", fe.getField());
+                    m.put("message", fe.getDefaultMessage() == null
+                            ? "Invalid value"
+                            : fe.getDefaultMessage());
+                    // RejectValue gives us the rejected value too, but
+                    // we deliberately DON'T echo it back — passwords
+                    // would leak into the response. The frontend can
+                    // re-read its own form state.
+                    return m;
+                })
+                .collect(Collectors.toList());
+
+        // Build a one-line summary that's safe to show as a toast:
+        // "<field>: <message>" of the first error.
+        String summary = fieldErrors.isEmpty()
+                ? "Validation failed"
+                : fieldErrors.get(0).get("field") + ": " + fieldErrors.get(0).get("message");
+
+        log.warn("MethodArgumentNotValidException at {}: {} field error(s)",
+                path(request), fieldErrors.size());
+
+        Map<String, Object> details = new HashMap<>();
+        details.put("fieldErrors", fieldErrors);
+        return buildWithDetails(HttpStatus.BAD_REQUEST, summary, details, request);
     }
 
     // ── 404 Not Found ─────────────────────────────────────────────────
@@ -174,7 +228,28 @@ public class GlobalExceptionHandler {
                 message,
                 status.value(),
                 path(request),
-                Instant.now().toString()
+                Instant.now().toString(),
+                null
+        );
+        return ResponseEntity.status(status).body(body);
+    }
+
+    /**
+     * Like {@link #build(HttpStatus, String, WebRequest)} but with an
+     * extra {@code details} map for callers that need to attach
+     * structured per-field info (e.g. validation errors). The
+     * {@code details} map is serialized as a top-level
+     * {@code "details"} key on the error response.
+     */
+    private static ResponseEntity<ErrorResponse> buildWithDetails(
+            HttpStatus status, String message, Map<String, Object> details, WebRequest request) {
+        ErrorResponse body = new ErrorResponse(
+                false,
+                message,
+                status.value(),
+                path(request),
+                Instant.now().toString(),
+                details
         );
         return ResponseEntity.status(status).body(body);
     }
@@ -209,13 +284,20 @@ public class GlobalExceptionHandler {
      * Uniform error envelope. Kept as a static nested record so this advice
      * is fully self-contained and we don't have to add a new DTO to the
      * {@code dto/} package for a single-purpose shape.
+     * <p>
+     * The {@code details} field is {@code null} for most error
+     * responses; it's only populated by handlers that have
+     * structured per-error info to share (e.g. {@code handleValidation}
+     * sets it to a {@code {fieldErrors: [...]}} map so the frontend
+     * can attach each error to the right form field).
      */
     public record ErrorResponse(
             boolean success,
             String message,
             int status,
             String path,
-            String timestamp
+            String timestamp,
+            Map<String, Object> details
     ) {
         /** Map-style accessor so older Jackson versions serialize the record correctly. */
         public Map<String, Object> toMap() {
@@ -225,6 +307,12 @@ public class GlobalExceptionHandler {
             m.put("status", status);
             m.put("path", path);
             m.put("timestamp", timestamp);
+            // Only include the details key when it's non-null so the
+            // existing envelope shape (success/message/status/path/
+            // timestamp) is preserved for every other error type.
+            if (details != null) {
+                m.put("details", details);
+            }
             return m;
         }
     }

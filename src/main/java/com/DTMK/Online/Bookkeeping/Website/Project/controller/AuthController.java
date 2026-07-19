@@ -1,11 +1,14 @@
 package com.DTMK.Online.Bookkeeping.Website.Project.controller;
 
 import com.DTMK.Online.Bookkeeping.Website.Project.config.LoginRateLimitService;
+import com.DTMK.Online.Bookkeeping.Website.Project.dto.LoginRequest;
+import com.DTMK.Online.Bookkeeping.Website.Project.dto.RegisterRequest;
 import com.DTMK.Online.Bookkeeping.Website.Project.entity.User;
 import com.DTMK.Online.Bookkeeping.Website.Project.mapper.UserMapper;
 import com.DTMK.Online.Bookkeeping.Website.Project.service.AuthService;
 import io.github.bucket4j.ConsumptionProbe;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -43,16 +46,27 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<Map<String, Object>> register(@RequestBody User request) {
+    public ResponseEntity<Map<String, Object>> register(
+            @Valid @RequestBody RegisterRequest request) {
+        // @Valid on @RequestBody runs the Jakarta Bean Validation
+        // annotations on RegisterRequest (NotBlank/Size/Pattern)
+        // BEFORE this method body executes. If anything fails,
+        // Spring throws MethodArgumentNotValidException which is
+        // caught by GlobalExceptionHandler and returned as a
+        // structured 400 response — so by the time we get here,
+        // we know the username is sane and the password is non-empty.
         Map<String, Object> response = new HashMap<>();
         if (userMapper.findByUsername(request.getUsername()) != null) {
             response.put("error", "Username is already registered!");
             return ResponseEntity.badRequest().body(response);
         }
 
-        request.setPassword(passwordEncoder.encode(request.getPassword()));
-        request.setAvatar("default-avatar.png");
-        userMapper.insertUser(request);
+        // Map the validated DTO to the persistence entity.
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setAvatar("default-avatar.png");
+        userMapper.insertUser(user);
 
         response.put("message", "Registration successful");
         return ResponseEntity.ok(response);
@@ -76,8 +90,13 @@ public class AuthController {
      * is not locked out as long as they eventually get it right.
      */
     @PostMapping("/login")
-    public ResponseEntity<Map<String, Object>> login(@RequestBody User request,
-                                                     HttpServletRequest httpRequest) {
+    public ResponseEntity<Map<String, Object>> login(
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest) {
+        // @Valid runs the Jakarta Bean Validation annotations on
+        // LoginRequest (NotBlank/Size/Pattern) BEFORE this method
+        // body executes — so by the time we get here, the username
+        // and password are guaranteed to be in the right shape.
         Map<String, Object> response = new HashMap<>();
         String ip = clientIp(httpRequest);
 

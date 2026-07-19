@@ -68,6 +68,19 @@
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 
+		<!--
+		  Bean Validation (Jakarta Validation API + Hibernate Validator).
+		  Activates @NotBlank / @Size / @Pattern / @DecimalMin / @DecimalMax
+		  on @RequestBody DTOs. Spring Boot's spring-boot-starter-web
+		  already pulls in the API jar, but we declare it explicitly
+		  so the dependency is obvious in the POM and survives any
+		  future starter split.
+		-->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+
 		<!-- JWT library (JSON Web Token) -->
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
