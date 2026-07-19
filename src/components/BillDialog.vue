@@ -306,7 +306,10 @@ const handleSubmit = async () => {
         description: formData.value.description || '',
         dayOfMonth: formData.value.dayOfMonth,
       }
-      await request.post('/api/recurring-bills', payload)
+      // The path is relative to request.js's baseURL ('/api'), so the
+      // effective URL is /api/recurring-bills — the route declared on
+      // RecurringBillController. Do NOT prefix with /api here.
+      await request.post('/recurring-bills', payload)
       ElMessage.success(
         `Recurring bill created — will be auto-posted on the ${formData.value.dayOfMonth} of every month.`
       )

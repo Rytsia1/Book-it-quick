@@ -169,6 +169,50 @@
           </button>
         </section>
 
+        <!-- Upcoming Bills (next 7-14 days) -->
+        <section class="panel">
+          <div class="panel__header">
+            <span class="panel__label">UPCOMING BILLS</span>
+            <span class="panel__hint">NEXT 14 DAYS</span>
+          </div>
+          <div v-if="upcomingBills.length === 0" class="upcoming-empty">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <p>No bills due in the next 14 days.</p>
+          </div>
+          <ul v-else class="upcoming-list">
+            <li
+              v-for="b in upcomingBills"
+              :key="b.id"
+              class="upcoming-item"
+            >
+              <div :class="['upcoming-icon', b.type === 1 ? 'upcoming-icon--income' : 'upcoming-icon--expense']">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+              </div>
+              <div class="upcoming-body">
+                <div class="upcoming-top">
+                  <span class="upcoming-name">{{ b.category || b.description || 'Bill' }}</span>
+                  <span :class="['mono', 'fw-600', 'upcoming-amount', b.type === 1 ? 'text-green' : 'text-red']">
+                    {{ b.type === 1 ? '+' : '-' }}{{ formatCurrencyUSD(b.amount) }}
+                  </span>
+                </div>
+                <div class="upcoming-bottom">
+                  <span class="upcoming-date">{{ formatDueDate(b.dueDate) }}</span>
+                  <span :class="['upcoming-chip', urgencyClass(b.daysUntil)]">
+                    {{ countdownLabel(b.daysUntil) }}
+                  </span>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </section>
+
         <!-- Quick Actions -->
         <section class="panel">
           <div class="panel__header">
@@ -240,6 +284,9 @@ import BillDialog from '@/components/BillDialog.vue'
 const router = useRouter()
 
 const bills = ref([])
+// Raw list of recurring-bill templates from GET /api/recurring-bills. We
+// derive the dashboard "Upcoming Bills" widget from this list on the fly.
+const recurringBills      = ref([])
 const monthlySummary = ref({
   income: 0, expense: 0, balance: 0,
   monthlyBudget: null, budgetUsedPercent: 0,
@@ -269,7 +316,7 @@ const currentDate = computed(() => {
   return today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 })
 
-// Show the 10 most recent transactions, newest first.
+// Show the 14 most recent transactions, newest first.
 // The `.slice()` before `.sort()` prevents mutating the original `bills` array
 // (which other computeds/watches rely on). The panel uses flex stretching
 // (see `.panel--fill` styles) so rows fill the available height.
@@ -277,7 +324,7 @@ const recentBills = computed(() =>
   bills.value
     .slice()
     .sort((a, b) => new Date(b.billDate) - new Date(a.billDate)) // newest first
-    .slice(0, 10)
+    .slice(0, 14)
 )
 const totalTransactions = computed(() => bills.value.length)
 
@@ -306,7 +353,7 @@ const formatCurrencyUSD = (amount) => {
 
 const billDialogVisible    = ref(false)
 const openBillDialog        = () => { billDialogVisible.value = true }
-const onBillDialogSuccess   = () => { billDialogVisible.value = false; fetchBills(); fetchMonthlySummary() }
+const onBillDialogSuccess   = () => { billDialogVisible.value = false; fetchBills(); fetchMonthlySummary(); fetchRecurringBills() }
 
 const dismissAlert         = () => { alertDismissed.value = true }
 const navigateToBills      = () => router.push('/bills')
@@ -399,7 +446,128 @@ const fetchMonthlySummary = async () => {
   } catch (e) { console.error(e) }
 }
 
-onMounted(() => { fetchBills(); fetchMonthlySummary() })
+/* ── Upcoming Bills widget ───────────────────────────────────────────
+ * Fetches the user's recurring-bill templates from GET /api/recurring-bills
+ * and projects each one to its next firing date. Templates that fire
+ * within the next 7-14 days (window chosen to match the task spec:
+ * "anticipation" of upcoming bills) are surfaced in a compact card on
+ * the dashboard, sorted by proximity, with a color-coded urgency chip.
+ */
+
+// "Today" as a midnight-anchored Date so day-diff math is stable.
+const startOfToday = () => {
+  const t = new Date()
+  t.setHours(0, 0, 0, 0)
+  return t
+}
+
+// Build a Date for the next time `dayOfMonth` falls on or after `from`.
+// `dayOfMonth` is 1-28 (validated server-side), so this is safe in every month
+// including February. If the template has a `lastRunYearMonth` matching the
+// current month and the day has already passed, we skip to next month.
+const nextOccurrence = (tpl, from) => {
+  const day = Number(tpl?.dayOfMonth)
+  if (!day || day < 1 || day > 28) return null
+  const today = new Date(from)
+  const y = today.getFullYear()
+  const m = today.getMonth()
+  // First candidate: this month on `day`.
+  let candidate = new Date(y, m, day)
+  // If the scheduler has already fired this template this month
+  // (lastRunYearMonth === 'YYYY-MM' for the current month), advance to next.
+  const lastRun = tpl.lastRunYearMonth
+  const currentYM = `${y}-${String(m + 1).padStart(2, '0')}`
+  if (lastRun === currentYM) {
+    candidate = new Date(y, m + 1, day)
+  }
+  // If the candidate is in the past (day-of-month already passed and the
+  // template hasn't fired this month yet, e.g. we're on the 5th and the
+  // day-of-month is the 1st), advance one month.
+  if (candidate < from) {
+    candidate = new Date(y, m + 1, day)
+  }
+  return candidate
+}
+
+// Whole-day diff between two midnight-anchored Dates. Positive when `a` is
+// after `b`. Used to drive the countdown chip.
+const dayDiff = (a, b) => {
+  const ms = a.getTime() - b.getTime()
+  return Math.round(ms / 86400000)
+}
+
+// Project the raw templates into a flat list of "upcoming" rows.
+// Filters to active templates whose next firing date is in the next
+// 0-14 days (so a bill due *today* still shows up). Paused / soft-deleted
+// templates are excluded.
+const upcomingBills = computed(() => {
+  const today = startOfToday()
+  const horizon = 14
+  const rows = []
+  for (const tpl of recurringBills.value) {
+    if (!tpl) continue
+    // Backend uses `active` (0/1) and `isDeleted` (0/1). Treat both falsy
+    // values as "not active".
+    if (tpl.active === 0 || tpl.active === false) continue
+    if (tpl.isDeleted === 1 || tpl.isDeleted === true) continue
+    const due = nextOccurrence(tpl, today)
+    if (!due) continue
+    const diff = dayDiff(due, today)
+    if (diff < 0 || diff > horizon) continue
+    rows.push({
+      id:        tpl.id,
+      type:      tpl.type ?? 0,
+      amount:    tpl.amount,
+      category:  tpl.category,
+      description: tpl.description,
+      dayOfMonth: tpl.dayOfMonth,
+      dueDate:   due,
+      daysUntil: diff,
+    })
+  }
+  return rows.sort((a, b) => a.daysUntil - b.daysUntil)
+})
+
+// Color-code the urgency chip. Red = today / tomorrow, amber = 2-3 days,
+// yellow = 4-7 days, muted ash = 8-14 days.
+const urgencyClass = (days) => {
+  if (days <= 1) return 'upcoming-chip--red'
+  if (days <= 3) return 'upcoming-chip--amber'
+  if (days <= 7) return 'upcoming-chip--yellow'
+  return 'upcoming-chip--ash'
+}
+
+const countdownLabel = (days) => {
+  if (days === 0) return 'Due today'
+  if (days === 1) return 'Due tomorrow'
+  return `Due in ${days} days`
+}
+
+// "Aug 12" style short date. Avoids locale issues by building from the
+// Date directly.
+const formatDueDate = (d) => {
+  if (!d) return ''
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+const fetchRecurringBills = async () => {
+  const userId = localStorage.getItem('userId')
+  if (!userId || userId === 'null' || userId === 'undefined') return
+  try {
+    // The path is relative to request.js's baseURL ('/api'), so the
+    // effective URL is /api/recurring-bills — the route declared on
+    // RecurringBillController. Do NOT prefix with /api here, or
+    // axios will produce /api/api/recurring-bills (404).
+    const data = await request.get('/recurring-bills', { params: { userId } })
+    recurringBills.value = Array.isArray(data) ? data : []
+  } catch (e) {
+    // Non-fatal: the widget will just render the empty state.
+    console.warn('Failed to load recurring bills:', e)
+    recurringBills.value = []
+  }
+}
+
+onMounted(() => { fetchBills(); fetchMonthlySummary(); fetchRecurringBills() })
 </script>
 
 <style scoped>
@@ -792,6 +960,127 @@ onMounted(() => { fetchBills(); fetchMonthlySummary() })
 }
 .badge--income  { background: rgba(34,197,94,0.1);  color: var(--green); }
 .badge--expense { background: rgba(239,68,68,0.1);  color: var(--red); }
+
+/* ── Upcoming Bills Widget ──
+ * Compact list rendered in the right sidebar. Each row shows a colored
+ * category icon, the bill name + amount (in USD), and a color-coded
+ * countdown chip ("Due in N days"). Color tiers:
+ *   red    = today / tomorrow
+ *   amber  = 2-3 days
+ *   yellow = 4-7 days
+ *   ash    = 8-14 days
+ */
+.panel__hint {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--ash);
+  padding: 2px 6px;
+  border: 1px solid var(--wire);
+  border-radius: 4px;
+}
+
+.upcoming-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 20px;
+  color: var(--ash);
+  text-align: center;
+}
+.upcoming-empty svg { opacity: 0.5; }
+.upcoming-empty p {
+  font-size: 12px;
+  line-height: 1.4;
+  max-width: 220px;
+}
+
+.upcoming-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.upcoming-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 8px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+.upcoming-item:hover { background: var(--slate); }
+
+.upcoming-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.upcoming-icon--expense { color: var(--red);   background: rgba(239, 68, 68, 0.10); }
+.upcoming-icon--income  { color: var(--green); background: rgba(34, 197, 94, 0.10); }
+
+.upcoming-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0; /* allow the name to truncate inside flex */
+}
+
+.upcoming-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.upcoming-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--bone);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.upcoming-amount { font-size: 13px; }
+
+.upcoming-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.upcoming-date {
+  font-size: 11px;
+  color: var(--ash);
+  font-family: var(--font-mono);
+}
+
+.upcoming-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+.upcoming-chip--red    { background: rgba(239, 68, 68, 0.14);  color: var(--red);   }
+.upcoming-chip--amber  { background: rgba(245, 158, 11, 0.14); color: var(--amber); }
+.upcoming-chip--yellow { background: rgba(234, 179, 8, 0.14);  color: #eab308;      }
+.upcoming-chip--ash    { background: var(--wire);              color: var(--ash);   }
 
 /* ── Responsive ── */
 @media (max-width: 1200px) {
