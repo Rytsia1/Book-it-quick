@@ -442,14 +442,13 @@ const HISTORY_MONTHS = 6
 
 const buildHistoryRange = () => {
   const months = []
-  // Oldest -> newest, including the current month.
-  let m = selectedMonth.value
-  let y = selectedYear.value
+  // Anchor the history range to *today*, not to the month the user is
+  // currently browsing in the month navigator. The history panel is a
+  // "last 6 months" recap, so it should stay constant while the user
+  // navigates forward/backward through other months.
+  const anchor = new Date(today.getFullYear(), today.getMonth(), 1)
   for (let i = HISTORY_MONTHS - 1; i >= 0; i--) {
-    const mm = ((m - 1 - i) % 12 + 12) % 12 + 1
-    const yy = y + Math.floor((m - 1 - i - (m - 1)) / 12)
-    // The math above simplifies to: walk backwards `i` months from (m, y).
-    const target = new Date(y, m - 1, 1)
+    const target = new Date(anchor)
     target.setMonth(target.getMonth() - i)
     months.push({
       month: target.getMonth() + 1,
@@ -479,21 +478,27 @@ const fetchHistory = async () => {
     )
     const currentM = today.getMonth() + 1
     const currentY = today.getFullYear()
-    historyRows.value = results.map(({ month, year, data, error }) => {
-      const actual    = error ? 0 : (data?.totalExpense || 0)
-      const budgetNum = savedBudget.value || (data?.monthlyBudget ? Number(data.monthlyBudget) : 0)
-      // Usage is computed client-side. Use 0 when no budget to avoid NaN%.
-      const usage = budgetNum > 0 ? (actual / budgetNum) * 100 : 0
-      return {
-        month,
-        year,
-        label:    `${MONTHS[month - 1]} ${year}`,
-        isCurrent: month === currentM && year === currentY,
-        budget:   budgetNum,
-        actual,
-        usage,
-      }
-    })
+    historyRows.value = results
+      .map(({ month, year, data, error }) => {
+        const actual    = error ? 0 : (data?.totalExpense || 0)
+        const budgetNum = savedBudget.value || (data?.monthlyBudget ? Number(data.monthlyBudget) : 0)
+        // Usage is computed client-side. Use 0 when no budget to avoid NaN%.
+        const usage = budgetNum > 0 ? (actual / budgetNum) * 100 : 0
+        return {
+          month,
+          year,
+          label:    `${MONTHS[month - 1]} ${year}`,
+          isCurrent: month === currentM && year === currentY,
+          budget:   budgetNum,
+          actual,
+          usage,
+        }
+      })
+      // Sort newest → oldest. Use a numeric `year*12 + month` key so the
+      // 6-month window still orders correctly when it crosses a year
+      // boundary (e.g. Sep 2025 → Feb 2026). A plain string sort would put
+      // "February 2026" before "September 2025" because 'F' < 'S'.
+      .sort((a, b) => (b.year * 12 + b.month) - (a.year * 12 + a.month))
   } catch (e) {
     console.error('fetchHistory error:', e)
     ElMessage.error('Failed to load budget history')
