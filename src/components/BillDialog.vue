@@ -104,6 +104,11 @@
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import {
+  categories as categoriesRef,
+  fetchCategories,
+  getCategoryNamesForType,
+} from '@/utils/categories'
 
 const props = defineProps({
   visible: {
@@ -128,11 +133,28 @@ const loading = ref(false)
 
 const isEditMode = computed(() => !!props.editData)
 
+/**
+ * Category options shown in the dropdown.
+ *
+ * Previously this was a hard-coded list of system defaults, which meant
+ * any new custom category added on the Categories page never appeared in
+ * the Add / Edit bill form. Now we read from the shared `categories`
+ * cache (kept in sync by the Categories page) and merge the system
+ * defaults with the user's custom categories via
+ * `getCategoryNamesForType`.
+ *
+ * `getCategoryNamesForType` expects the integer type used by the backend
+ * (0 = expense, 1 = income), so we translate from the form's string
+ * representation. Touching `categoriesRef.value` keeps this computed
+ * reactive to updates from the shared cache.
+ */
 const categoryOptions = computed(() => {
-  if (formData.value.type === 'income') {
-    return ['Salary', 'Bonus', 'Freelance', 'Investment', 'Loan', 'Debt', 'Other Income']
-  }
-  return ['Food', 'Transport', 'Utilities', 'Shopping', 'Entertainment', 'Health', 'Education', 'Rent', 'Other Expense']
+  const typeInt = formData.value.type === 'income' ? 1 : 0
+  // Read the ref so Vue tracks the dependency and re-runs when
+  // categories are added / removed from the shared cache.
+  // eslint-disable-next-line no-unused-expressions
+  categoriesRef.value
+  return getCategoryNamesForType(typeInt)
 })
 
 const formData = ref({
@@ -208,6 +230,36 @@ watch(
     }
   },
   { immediate: true }
+)
+
+// When the user changes the bill type, clear the previously selected
+// category so we don't keep a value that doesn't belong to the new
+// type's list (e.g. an expense category still selected after switching
+// to income).
+watch(
+  () => formData.value.type,
+  () => {
+    formData.value.category = ''
+  }
+)
+
+// When the dialog becomes visible, make sure the shared categories
+// cache is loaded so custom categories show up even if the user never
+// visited the Categories page first. `fetchCategories` is a no-op when
+// the cache is already populated for the same user, so this is cheap.
+watch(
+  () => props.visible,
+  async (isVisible) => {
+    if (!isVisible) return
+    const userId = Number(localStorage.getItem('userId'))
+    if (!userId) return
+    try {
+      await fetchCategories(userId)
+    } catch (e) {
+      // Non-fatal: defaults will still render.
+      console.warn('Failed to refresh categories for bill dialog:', e)
+    }
+  }
 )
 
 const handleSubmit = async () => {

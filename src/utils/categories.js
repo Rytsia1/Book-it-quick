@@ -21,10 +21,14 @@ export const categories = _categories
  * The default "system" categories that every new user can use out of the box.
  * They are returned by the backend too, but having them here as a fallback
  * makes the UI snappy before the network call completes.
+ *
+ * Note: "Other Income" and "Other Expense" are intentionally NOT included
+ * here — users are expected to create their own catch-all categories
+ * (e.g. "Misc", "Other") through the Categories page if they need one.
  */
 export const DEFAULT_CATEGORIES = {
-  1: ['Salary', 'Bonus', 'Freelance', 'Investment', 'Loan', 'Debt', 'Other Income'],
-  0: ['Food', 'Transport', 'Utilities', 'Shopping', 'Entertainment', 'Health', 'Education', 'Rent', 'Other Expense'],
+  1: ['Salary', 'Bonus', 'Freelance', 'Investment', 'Loan', 'Debt'],
+  0: ['Food', 'Transport', 'Utilities', 'Shopping', 'Entertainment', 'Health', 'Education', 'Rent'],
 }
 
 /**
