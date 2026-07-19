@@ -58,12 +58,27 @@ public class JwtUtil {
     /**
      * Issue a fresh access token. Each call gets a unique {@code jti}
      * (UUID) so the denylist can target individual tokens.
+     * <p>
+     * The user's {@code role} (USER or ADMIN) is embedded in the
+     * {@code role} claim so the {@code JwtAuthenticationFilter} can
+     * populate the Spring SecurityContext with the right authority
+     * without a DB lookup on every request. The role is also
+     * returned to the frontend in the login response so the UI can
+     * branch on it (e.g. show the "Admin" link only to admins).
+     *
+     * @param username the user's username
+     * @param role     the user's role ({@code "USER"} or {@code "ADMIN"});
+     *                 a null/blank role is normalised to {@code "USER"}
+     *                 so a corrupted token never grants elevated
+     *                 privileges by default.
      */
-    public String generateAccessToken(String username) {
+    public String generateAccessToken(String username, String role) {
         long now = System.currentTimeMillis();
+        String safeRole = (role == null || role.isBlank()) ? "USER" : role;
         return Jwts.builder()
                 .setId(UUID.randomUUID().toString())         // jti claim
                 .setSubject(username)
+                .claim("role", safeRole)                     // RBAC: USER or ADMIN
                 .setIssuedAt(new Date(now))
                 .setExpiration(new Date(now + ACCESS_TOKEN_EXPIRATION_MS))
                 .signWith(key)

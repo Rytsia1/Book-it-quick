@@ -172,3 +172,43 @@ CREATE TABLE IF NOT EXISTS t_token_denylist (
     KEY idx_expires_at (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='Explicitly revoked access tokens, checked at /refresh and /logout only';
+
+-- ────────────────────────────────────────────────────────────────────
+-- 11) RBAC: User role column
+--   t_user.role is an ENUM('USER', 'ADMIN') with a default of 'USER'.
+--   Self-registered accounts via /api/auth/register automatically get
+--   the 'USER' role. The 'ADMIN' role is granted manually (via a direct
+--   database UPDATE) to bootstrap the first administrator; subsequent
+--   admin promotion can happen via the admin-only /api/admin/users/:id/role
+--   endpoint.
+--
+--   The Spring Security layer in SecurityConfig.java uses
+--   @PreAuthorize("hasRole('ADMIN')") to gate admin-only endpoints.
+--   The role is also embedded in the JWT (claim "role") so the
+--   JwtAuthenticationFilter can populate the SecurityContext without
+--   a DB lookup on every request.
+--
+--   Adding the column is idempotent: the INFORMATION_SCHEMA check
+--   skips the ALTER TABLE on databases that already have it.
+-- ────────────────────────────────────────────────────────────────────
+SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS
+             WHERE table_schema = DATABASE()
+               AND table_name   = 't_user'
+               AND column_name  = 'role');
+SET @sql := IF(@col = 0,
+    'ALTER TABLE t_user ADD COLUMN role ENUM(''USER'', ''ADMIN'') NOT NULL DEFAULT ''USER'' COMMENT ''RBAC role: USER can manage own data, ADMIN can manage everything''',
+    'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- Index for the admin-promotion flow: when an existing admin lists
+-- "all users with the ADMIN role" (or counts them for the bootstrap
+-- "is there an admin yet?" check), this index makes the query a fast
+-- index-only scan instead of a full table scan.
+SET @ix := (SELECT COUNT(*) FROM information_schema.STATISTICS
+            WHERE table_schema = DATABASE()
+              AND table_name   = 't_user'
+              AND index_name   = 'idx_user_role');
+SET @sql := IF(@ix = 0,
+    'ALTER TABLE t_user ADD INDEX idx_user_role (role)',
+    'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

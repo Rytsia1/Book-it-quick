@@ -140,6 +140,14 @@ public class AuthController {
         response.put("accessTokenExpiresAt", pair.accessTokenExpiresAt().getTime());
         response.put("userId", user.getId());
         response.put("username", user.getUsername());
+        // RBAC: include the user's role in the login response so the
+        // frontend can branch the UI (e.g. show the "Admin" navbar
+        // link only to admins). The role is also embedded in the
+        // JWT itself (see JwtUtil.generateAccessToken) so the
+        // JwtAuthenticationFilter can populate the Spring
+        // SecurityContext with the right authority on subsequent
+        // requests, no DB lookup needed.
+        response.put("role", user.getRole() == null ? "USER" : user.getRole());
         return ResponseEntity.ok(response);
     }
 

@@ -86,7 +86,12 @@ public class AuthService {
      */
     @Transactional
     public TokenPair issueTokenPair(User user) {
-        String accessToken = jwtUtil.generateAccessToken(user.getUsername());
+        // RBAC: pass the user's role into the JWT so the
+        // JwtAuthenticationFilter can populate the Spring
+        // SecurityContext with the right authority on every
+        // request, without a DB lookup. JwtUtil.generateAccessToken
+        // normalises a null/blank role to "USER" defensively.
+        String accessToken = jwtUtil.generateAccessToken(user.getUsername(), user.getRole());
         String refreshToken = jwtUtil.generateOpaqueRefreshToken();
 
         RefreshToken row = new RefreshToken();

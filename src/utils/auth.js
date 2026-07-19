@@ -5,9 +5,9 @@ import axios from 'axios'
  *
  * <h2>Why this file exists</h2>
  * The auth flow now uses two tokens:
- *   - accessToken  (JWT, 15-minute lifetime)  \u2014 attached to every
+ *   - accessToken  (JWT, 15-minute lifetime)  - attached to every
  *     request as `Authorization: Bearer ...`.
- *   - refreshToken (opaque, 7-day lifetime)  \u2014 only sent to
+ *   - refreshToken (opaque, 7-day lifetime)  - only sent to
  *     `/api/auth/refresh` when the access token expires.
  *
  * Both are kept in localStorage so the user stays signed in across
@@ -19,7 +19,7 @@ import axios from 'axios'
  *
  * <h2>Single-flight refresh</h2>
  * If 10 in-flight requests all see a 401 at the same time, they must
- * NOT all call `/refresh` independently \u2014 that would burn 10
+ * NOT all call `/refresh` independently - that would burn 10
  * refresh tokens (rotation) and log the user out. Instead, the first
  * request triggers the refresh and stores the in-flight promise on a
  * module-level variable; the other 9 await the same promise.
@@ -33,6 +33,10 @@ const EXPIRES_KEY = 'accessTokenExpiresAt' // ms epoch
 // and the router guard).
 const USERNAME_KEY = 'username'
 const USERID_KEY   = 'userId'
+// RBAC: the user's role (USER or ADMIN) returned by /api/auth/login.
+// Read by NavBar.vue to show the "Admin" link only to admins, and
+// could be used by router guards to gate admin-only client routes.
+const ROLE_KEY     = 'userRole'
 
 // ──────────────────────────── Token storage ────────────────────────────
 
@@ -49,10 +53,28 @@ export function getAccessTokenExpiresAt() {
     return v ? Number(v) : 0
 }
 
-export function setTokens({ accessToken, refreshToken, accessTokenExpiresAt }) {
+/**
+ * RBAC: returns the current user's role as a plain string
+ * ({@code "USER"} or {@code "ADMIN"}), or {@code "USER"} as a
+ * safe default if the key is missing (which would only happen
+ * during the brief moment between "user is logged in" and "we
+ * have the role persisted in localStorage"). NavBar.vue uses
+ * this to decide whether to render the "Admin" link.
+ */
+export function getRole() {
+    const r = localStorage.getItem(ROLE_KEY)
+    return (r === 'ADMIN' || r === 'USER') ? r : 'USER'
+}
+
+export function setTokens({ accessToken, refreshToken, accessTokenExpiresAt, role }) {
     if (accessToken) localStorage.setItem(ACCESS_KEY, accessToken)
     if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken)
     if (accessTokenExpiresAt) localStorage.setItem(EXPIRES_KEY, String(accessTokenExpiresAt))
+    // RBAC: persist the role too so the NavBar can branch on it
+    // without waiting for the next page load to re-fetch.
+    if (role === 'ADMIN' || role === 'USER') {
+        localStorage.setItem(ROLE_KEY, role)
+    }
 }
 
 // ──────────────────────────── Token storage ────────────────────────────
@@ -85,6 +107,7 @@ export function clearAllAuth() {
     clearTokens()
     localStorage.removeItem(USERNAME_KEY)
     localStorage.removeItem(USERID_KEY)
+    localStorage.removeItem(ROLE_KEY)   // RBAC: also wipe the role
 }
 
 /**
@@ -132,6 +155,7 @@ export function wipeAllLocalStorage() {
         'accessTokenExpiresAt',
         'username',
         'userId',
+        'userRole',           // RBAC
         // Common legacy / alt names the router guard or Login.vue
         // might be reading. Listed explicitly so a stale entry
         // can't keep the user "logged in" after a hard reload.
@@ -202,7 +226,16 @@ export function refreshAccessToken() {
             if (!accessToken || !newRefreshToken) {
                 throw new Error('Malformed refresh response')
             }
-            setTokens({ accessToken, refreshToken: newRefreshToken, accessTokenExpiresAt })
+            // RBAC: the new access token may have been issued with a
+            // different role (e.g. an admin demoted the user mid-
+            // session). Carry the role forward so the NavBar / router
+            // guard see the up-to-date value.
+            setTokens({
+                accessToken,
+                refreshToken: newRefreshToken,
+                accessTokenExpiresAt,
+                role: data.role,
+            })
             return accessToken
         })
         .finally(() => {

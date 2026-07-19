@@ -119,6 +119,11 @@ const handleLogin = async () => {
     const accessTokenExpiresAt = data?.accessTokenExpiresAt || response?.accessTokenExpiresAt
     const userId               = data?.userId        || response?.userId
     const username             = data?.username      || response?.username || loginForm.username
+    // RBAC: the backend returns the user's role (USER or ADMIN) in
+    // the login response. We persist it to localStorage so the
+    // NavBar can branch on it (show "Admin" link only to admins)
+    // without waiting for the next page load to re-fetch.
+    const role                 = data?.role          || response?.role || 'USER'
     if (accessToken) {
       // Persist the access token under both `accessToken` (new) and
       // `token` (legacy) so any older call site that still reads
@@ -143,6 +148,13 @@ const handleLogin = async () => {
         // may have written. The router guard and request interceptor
         // will route the user to /login if userId is missing.
         localStorage.removeItem('userId')
+      }
+      // RBAC: persist the role. The value is also embedded in the
+      // JWT itself (claim "role") and is the source of truth for
+      // server-side @PreAuthorize checks; this localStorage copy
+      // is purely for the frontend UI to read via auth.getRole().
+      if (role === 'ADMIN' || role === 'USER') {
+        localStorage.setItem('userRole', role)
       }
       ElMessage.success('Welcome back!')
       setTimeout(() => router.push('/dashboard'), 400)

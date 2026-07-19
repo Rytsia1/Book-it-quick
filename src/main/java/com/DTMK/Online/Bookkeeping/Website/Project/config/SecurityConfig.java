@@ -2,83 +2,162 @@ package com.DTMK.Online.Bookkeeping.Website.Project.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+/**
+ * Spring Security configuration.
+ *
+ * <h2>What this class does</h2>
+ * <ul>
+ *   <li>Wires a real {@link SecurityFilterChain} (the previous version
+ *       used {@code anyRequest().permitAll()}, which meant there was
+ *       <b>no</b> authentication at all).</li>
+ *   <li>Installs a {@link JwtAuthenticationFilter} that reads the
+ *       {@code Authorization: Bearer ...} header on every request,
+ *       validates the JWT, and populates the Spring SecurityContext
+ *       with the user's role as a {@code ROLE_USER} or
+ *       {@code ROLE_ADMIN} authority. After this, the standard
+ *       {@code @PreAuthorize("hasRole('ADMIN')")} annotation works
+ *       out of the box.</li>
+ *   <li>Enables {@code @EnableMethodSecurity(prePostEnabled = true)}
+ *       so controllers and service methods can use
+ *       {@code @PreAuthorize}, {@code @PostAuthorize}, etc.</li>
+ *   <li>Configures per-endpoint authorization rules:
+ *       {@code /api/auth/**} (login/register/refresh) is
+ *       {@code permitAll}; {@code /api/admin/**} requires
+ *       {@code hasRole('ADMIN')}; everything else is
+ *       {@code authenticated()} (a JWT must be present).</li>
+ *   <li>Configures custom JSON {@code authenticationEntryPoint} and
+ *       {@code accessDeniedHandler} so 401/403 responses use the
+ *       same JSON envelope the rest of the API uses (handled by
+ *       {@link GlobalExceptionHandler}).</li>
+ * </ul>
+ *
+ * <h2>Why we don't use Spring Security's UserDetailsService</h2>
+ * Because we're JWT-only. The JWT is self-validating (HMAC signature)
+ * and carries the role in its claims, so we don't need a DB lookup
+ * on every request. The {@code JwtAuthenticationFilter} just trusts
+ * the token's signature + expiry + denylist check and maps the
+ * role claim to a Spring Security authority.
+ */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)   // enables @PreAuthorize
 public class SecurityConfig {
 
-    // 1. Mendaftarkan "Alat" Enkripsi BCrypt ke Spring Boot
+    /**
+     * BCrypt password encoder. Same strength as the previous version;
+     * kept here so {@code AuthController} can keep using
+     * {@code PasswordEncoder} for registration.
+     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
     /**
-     * CORS configuration source used by the Spring Security filter chain.
+     * AuthenticationManager bean. Required by Spring Security even
+     * though we don't use form login — the JWT filter needs it to
+     * be available in the application context.
+     */
+    @Bean
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration cfg) throws Exception {
+        return cfg.getAuthenticationManager();
+    }
+
+    /**
+     * The actual security filter chain.
      * <p>
-     * <b>Why this is here, separately from {@code CorsConfig}:</b>
-     * When {@code spring-boot-starter-security} is on the classpath, every
-     * request (including the CORS preflight {@code OPTIONS} request that
-     * the browser sends before any non-simple {@code POST}/{@code PUT}/
-     * {@code DELETE} with {@code Content-Type: application/json}) is
-     * handled by the {@code SecurityFilterChain} <i>before</i> it reaches
-     * Spring MVC's {@code WebMvcConfigurer} CORS handler.
-     * <p>
-     * If the security chain does not have its own CORS configuration, the
-     * preflight is rejected with 403, the browser cancels the real request,
-     * and the frontend sees a silent "Network Error" / "Failed to save"
-     * even though the controller would have handled the request fine.
-     * <p>
-     * Exposing this bean and calling {@code http.cors(Customizer.withDefaults())}
-     * below makes the security filter chain use these rules for preflight
-     * handling, which is what makes POST/PUT/DELETE actually reach the
-     * {@code BillController}, {@code CategoryController}, etc.
+     * Endpoint rules:
+     * <ul>
+     *   <li>{@code /api/auth/**}    \u2014 permitAll (login/register/refresh
+     *       must be reachable without a token, otherwise the user
+     *       can never log in to begin with).</li>
+     *   <li>{@code /api/admin/**}   \u2014 hasRole('ADMIN') (the
+     *       {@code @PreAuthorize("hasRole('ADMIN')")} annotation
+     *       on the controller is a second layer of defence).</li>
+     *   <li>everything else         \u2014 authenticated (a valid JWT
+     *       must be present in the Authorization header).</li>
+     * </ul>
+     */
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                           JwtAuthenticationFilter jwtAuthFilter) throws Exception {
+        http
+            .cors(Customizer.withDefaults())
+            .csrf(AbstractHttpConfigurer::disable)
+            .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .anyRequest().authenticated()
+            )
+            // No HTTP-basic or form-login: auth is JWT-only.
+            .httpBasic(AbstractHttpConfigurer::disable)
+            .formLogin(AbstractHttpConfigurer::disable)
+            // Insert the JWT filter BEFORE the standard
+            // UsernamePasswordAuthenticationFilter so the SecurityContext
+            // is populated before any auth check runs.
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            // Custom JSON 401 / 403 responses. The frontend's
+            // request.js interceptor reads `response.data.message` to
+            // show the toast; this matches the GlobalExceptionHandler
+            // envelope shape ({success, message, status, path, timestamp}).
+            .exceptionHandling(eh -> eh
+                .authenticationEntryPoint((req, res, ex) -> {
+                    res.setStatus(401);
+                    res.setContentType("application/json;charset=UTF-8");
+                    res.getWriter().write(
+                        "{\"success\":false,\"message\":\"Authentication required\","
+                      + "\"status\":401,\"path\":\"" + req.getRequestURI() + "\","
+                      + "\"timestamp\":\"" + java.time.Instant.now() + "\"}");
+                })
+                .accessDeniedHandler((req, res, ex) -> {
+                    res.setStatus(403);
+                    res.setContentType("application/json;charset=UTF-8");
+                    res.getWriter().write(
+                        "{\"success\":false,\"message\":\"Access denied: ADMIN role required\","
+                      + "\"status\":403,\"path\":\"" + req.getRequestURI() + "\","
+                      + "\"timestamp\":\"" + java.time.Instant.now() + "\"}");
+                })
+            );
+        return http.build();
+    }
+
+    /**
+     * CORS configuration. Same shape as before so the Vue dev
+     * server (http://localhost:5173 / :3000) can keep talking to
+     * Spring. Allowed headers now also include {@code Authorization}
+     * so the JWT Bearer token can be sent cross-origin.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
-        // Must mirror the origins listed in CorsConfig.java.
         cfg.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        // Allow every request header (Authorization, Content-Type, etc.).
         cfg.setAllowedHeaders(List.of("*"));
-        // Expose the headers the frontend may need to read from the response.
         cfg.setExposedHeaders(List.of("Authorization"));
-        // Required so the browser sends the Authorization header / cookies.
         cfg.setAllowCredentials(true);
-        // Cache the preflight result for 1 hour to avoid extra round-trips.
         cfg.setMaxAge(3600L);
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cfg);
         return source;
-    }
-
-    // 2. Mematikan blokir bawaan agar Frontend bisa mengakses API kita
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                // Enable CORS in the security chain so OPTIONS preflight
-                // requests from the browser succeed. Without this, the
-                // WebMvcConfigurer CORS rules in CorsConfig.java are never
-                // reached for preflight and POST/PUT/DELETE silently fail.
-                .cors(Customizer.withDefaults())
-                .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll() // Izinkan semua endpoint (login/register/bills) bisa diakses
-                );
-        return http.build();
     }
 }

@@ -28,6 +28,24 @@
       <router-link to="/categories" class="nav-item" active-class="nav-item--active">
         Categories
       </router-link>
+
+      <!--
+        RBAC: the Admin link is only rendered when the current user
+        has role === 'ADMIN'. The role is read from localStorage
+        (set by Login.vue on a successful login). The server-side
+        @PreAuthorize("hasRole('ADMIN')") on AdminController is
+        the actual access-control boundary; this is purely a UI
+        affordance so regular users don't see a link that would
+        403 them.
+      -->
+      <router-link
+        v-if="isAdmin"
+        to="/admin"
+        class="nav-item nav-item--admin"
+        active-class="nav-item--active"
+      >
+        Admin
+      </router-link>
     </div>
 
     <!-- Right -->
@@ -45,6 +63,14 @@
           <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
         </svg>
         {{ username }}
+        <!--
+          RBAC: small inline badge showing the user's role. Hidden
+          for regular users (the 'Admin' nav link already tells them
+          they're not an admin); visible for admins. Cheap visual
+          confirmation that the JWT's role claim is what the server
+          is using for @PreAuthorize checks.
+        -->
+        <span v-if="isAdmin" class="role-badge" title="You have the ADMIN role">ADMIN</span>
       </span>
       <button class="logout-btn" @click="handleLogout">
         Logout
@@ -65,11 +91,17 @@ import CurrencySelector from '@/components/CurrencySelector.vue'
 import {
     getAccessToken,
     getRefreshToken,
-    wipeAllLocalStorage,
+    clearAllAuth,
 } from '@/utils/auth'
 
 const router   = useRouter()
 const username = computed(() => localStorage.getItem('username') || 'user')
+
+// RBAC: read the role from localStorage and surface it as a boolean.
+// auth.getRole() already defaults to 'USER' if the key is missing
+// or has an unknown value, so this is safe on every page load.
+import { getRole } from '@/utils/auth'
+const isAdmin = computed(() => getRole() === 'ADMIN')
 
 const handleLogout = () => {
   ElMessageBox.confirm('Are you sure you want to log out?', 'Confirmation', {
@@ -97,15 +129,10 @@ const handleLogout = () => {
     const accessToken  = getAccessToken()
     const refreshToken = getRefreshToken()
 
-    // 2) Wipe EVERYTHING in localStorage. This is the "nuclear"
-    //    option: it removes not just the keys we know about
-    //    (accessToken, refreshToken, username, userId) but also
-    //    any stale keys left over from older versions of the app
-    //    (token, jwt, userToken, etc). A stale key would otherwise
-    //    be picked up by the router guard on the next page load
-    //    and bounce the user right back to /dashboard right after
-    //    this hard-reload completed.
-    wipeAllLocalStorage()
+    // 2) Wipe local state immediately. This drops userId, so any
+    //    in-flight request that 401s after this point can't
+    //    re-trigger the silent-refresh interceptor with stale data.
+    clearAllAuth()
 
     // 3) Fire the toast SYNCHRONOUSLY. `el-message` is appended to
     //    document.body in the same microtask, so the toast is in
@@ -211,6 +238,18 @@ const handleLogout = () => {
   border-bottom-color: var(--ember) !important;
 }
 
+/* RBAC: visually distinguish the Admin link so admins can spot it
+   at a glance. Slightly higher contrast than the regular links, and
+   a thin ember underline even when inactive. */
+.nav-item--admin {
+  color: var(--ember);
+}
+.nav-item--admin:hover { color: var(--spark); }
+.nav-item--admin.nav-item--active {
+  color: var(--white) !important;
+  border-bottom-color: var(--ember) !important;
+}
+
 /* Right */
 .nav-right {
   display: flex;
@@ -226,6 +265,22 @@ const handleLogout = () => {
   font-size: 12px;
   color: var(--ash);
   font-weight: 500;
+}
+
+/* RBAC: small inline badge next to the username, visible only for
+   admins. Confirms to the admin that the JWT's role claim is
+   what the server is using for @PreAuthorize checks. */
+.role-badge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: var(--ember);
+  background: rgba(240, 90, 20, 0.10);
+  border: 1px solid rgba(240, 90, 20, 0.30);
+  border-radius: 99px;
+  padding: 2px 8px;
+  margin-left: 4px;
+  text-transform: uppercase;
 }
 
 .logout-btn {

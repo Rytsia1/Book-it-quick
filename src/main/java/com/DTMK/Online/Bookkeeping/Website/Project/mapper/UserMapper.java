@@ -27,4 +27,24 @@ public interface UserMapper {
     // Updates the user's monthly budget target.
     @Update("UPDATE t_user SET monthly_budget = #{monthlyBudget} WHERE id = #{userId}")
     void updateMonthlyBudget(@Param("userId") Integer userId, @Param("monthlyBudget") BigDecimal monthlyBudget);
+
+    /**
+     * RBAC: update a user's role. Called by the admin-only
+     * {@code POST /api/admin/users/:id/role} endpoint to promote
+     * a regular {@code USER} to {@code ADMIN} (or demote back).
+     * The caller is expected to have already been authorised by
+     * the {@code @PreAuthorize("hasRole('ADMIN')")} annotation
+     * on the controller.
+     */
+    @Update("UPDATE t_user SET role = #{role} WHERE id = #{id}")
+    void updateRole(@Param("id") Integer id, @Param("role") String role);
+
+    /**
+     * Count users with the {@code ADMIN} role. Used by the
+     * bootstrap seed (and by future "is there an admin yet?"
+     * health checks). Cheap because of the
+     * {@code idx_user_role} index added in the schema migration.
+     */
+    @Select("SELECT COUNT(*) FROM t_user WHERE role = 'ADMIN'")
+    int countAdmins();
 }
