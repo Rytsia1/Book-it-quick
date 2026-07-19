@@ -4,6 +4,45 @@ POST http://localhost:8080/api/user/register?username=dios&password=123
 ### Tes Login (Klik tombol panah hijau di sebelah kiri baris ini)
 POST http://localhost:8080/api/user/login?username=dios&password=123
 
+### ── REFRESH TOKEN & DENYLIST (Auth) ──
+
+### Register (auth path used by the frontend)
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "dios",
+  "password": "123456"
+}
+
+### Login — returns accessToken (15 min, JWT) + refreshToken (7 days, opaque)
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "dios",
+  "password": "123456"
+}
+
+### Refresh — exchange refreshToken for a new (access, refresh) pair
+### Copy the refreshToken from the /login response below:
+POST http://localhost:8080/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "PASTE_REFRESH_TOKEN_HERE"
+}
+
+### Logout — revokes access token (jti -> denylist) and refresh token
+### (hash -> revoked=1). Idempotent. Bearer header is optional.
+POST http://localhost:8080/api/auth/logout
+Content-Type: application/json
+Authorization: Bearer PASTE_ACCESS_TOKEN_HERE
+
+{
+  "refreshToken": "PASTE_REFRESH_TOKEN_HERE"
+}
+
 ### 1. Tambah Catatan Pengeluaran Baru
 POST http://localhost:8080/api/bill/add
 Content-Type: application/json

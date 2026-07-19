@@ -321,6 +321,7 @@ import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 import BillDialog from '@/components/BillDialog.vue'
 import { fmtAmount, fmtSigned, useCurrency } from '@/composables/useCurrency'
+import { clearTokens, clearAllAuth, logoutOnServer } from '@/utils/auth'
 
 const router = useRouter()
 
@@ -473,12 +474,47 @@ const saveBudget = async () => {
   }
 }
 
-const handleCommand = (cmd) => {
+/**
+ * Returns the current user's id from localStorage, or null if it's
+ * missing / corrupted. Used as a guard by every fetch* function so a
+ * stale localStorage state can't fire a /api/bills?userId=null
+ * request that would 400 and confuse the user.
+ */
+const getUserId = () => {
+  const v = localStorage.getItem('userId')
+  if (!v || v === 'null' || v === 'undefined' || v === '') return null
+  return v
+}
+
+/**
+ * Centralised \"you're not signed in\" recovery. Wipes the auth
+ * tokens, surfaces a friendly toast, and routes to /login. Used by
+ * every fetch function that detects a missing userId.
+ */
+const redirectToLogin = (reason) => {
+  if (reason) ElMessage.warning(reason)
+  clearTokens()
+  if (router.currentRoute.value.path !== '/login') {
+    router.push('/login').catch(() => { /* ignore duplicate-nav */ })
+  }
+}
+
+const handleCommand = async (cmd) => {
   if (cmd === 'logout') {
-    localStorage.removeItem('token')
-    localStorage.removeItem('username')
-    localStorage.removeItem('userId')
-    router.push('/login')
+    // Tell the backend to revoke BOTH the access token (jti -> denylist)
+    // and the refresh token (hash -> revoked=1) before we wipe them
+    // locally. logoutOnServer() is best-effort: a network failure
+    // still proceeds to local cleanup so the UI is never stuck.
+    // The await is wrapped so a slow /auth/logout can never block the
+    // user from being redirected to /login.
+    try {
+      await Promise.race([
+        logoutOnServer(),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ])
+    } catch (_) { /* best-effort */ }
+    clearAllAuth()
+    router.push('/login').catch(() => { /* ignore duplicate-nav */ })
     ElMessage.success('Logged out')
   } else if (cmd === 'settings') {
     openBudgetDialog()
@@ -486,14 +522,26 @@ const handleCommand = (cmd) => {
 }
 
 const fetchBills = async () => {
+  const userId = getUserId()
+  if (!userId) {
+    // No userId means the session is broken; send the user back to
+    // /login instead of firing a request that's guaranteed to 400.
+    redirectToLogin('Session expired. Please log in again.')
+    return
+  }
   try {
     loading.value = true
-    const userId = localStorage.getItem('userId')
     const data = await request.get('/bills', { params: { userId } })
     // Use the shared `compareBillsDesc` so the underlying `bills` list
     // is also newest-first within the same day, not just `recentBills`.
     bills.value = Array.isArray(data) ? data.sort(compareBillsDesc) : []
   } catch (e) {
+    // 401: the silent-refresh interceptor in request.js has already
+    // tried to recover. If we get here, the session is gone.
+    if (e?.response?.status === 401) {
+      redirectToLogin('Session expired. Please log in again.')
+      return
+    }
     ElMessage.error('Failed to load bills')
   } finally {
     loading.value = false
@@ -501,9 +549,13 @@ const fetchBills = async () => {
 }
 
 const fetchMonthlySummary = async () => {
+  const userId = getUserId()
+  if (!userId) {
+    redirectToLogin('Session expired. Please log in again.')
+    return
+  }
   try {
     const today = new Date()
-    const userId = localStorage.getItem('userId')
     const data = await request.get('/stats/summary', {
       params: { userId, month: today.getMonth() + 1, year: today.getFullYear() }
     })
@@ -516,7 +568,13 @@ const fetchMonthlySummary = async () => {
       budgetWarning:     data.budgetWarning     || false,
       budgetExceeded:    data.budgetExceeded    || false,
     }
-  } catch (e) { console.error(e) }
+  } catch (e) {
+    if (e?.response?.status === 401) {
+      redirectToLogin('Session expired. Please log in again.')
+      return
+    }
+    console.error(e)
+  }
 }
 
 /* ── Upcoming Bills widget ───────────────────────────────────────────

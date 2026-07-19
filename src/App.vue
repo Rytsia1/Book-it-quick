@@ -1,10 +1,35 @@
 <script setup>
-import { useRoute } from 'vue-router'
-import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
 import NavBar from '@/components/NavBar.vue'
+import { onAuthFailure } from '@/utils/request'
 
-const route = useRoute()
+const route  = useRoute()
+const router = useRouter()
 const showNavBar = computed(() => route.path !== '/login' && route.path !== '/register')
+
+// Global auth-failure handler. The axios request layer in
+// `src/utils/request.js` does NOT import the router (that would
+// create a circular import via the views). Instead it dispatches a
+// `app:auth-failure` window event; we catch it here, where the
+// router is already in scope via `useRouter()`, and translate it
+// into a real navigation. The unsubscribe function returned by
+// `onAuthFailure` is captured so the listener is removed if App
+// ever unmounts (HMR, test teardown, etc.).
+let offAuthFailure = null
+onMounted(() => {
+    offAuthFailure = onAuthFailure(() => {
+        // Only navigate if we're not already on /login — otherwise
+        // we'd push the same route twice and the second push would
+        // raise a NavigationDuplicated warning.
+        if (router.currentRoute.value.path !== '/login') {
+            router.push('/login').catch(() => { /* ignore duplicate-nav */ })
+        }
+    })
+})
+onBeforeUnmount(() => {
+    if (typeof offAuthFailure === 'function') offAuthFailure()
+})
 </script>
 
 <template>

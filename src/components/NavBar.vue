@@ -62,6 +62,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import CurrencySelector from '@/components/CurrencySelector.vue'
+import { clearAllAuth, logoutOnServer } from '@/utils/auth'
 
 const router   = useRouter()
 const username = computed(() => localStorage.getItem('username') || 'user')
@@ -71,11 +72,26 @@ const handleLogout = () => {
     confirmButtonText: 'Logout',
     cancelButtonText: 'Cancel',
     type: 'warning',
-  }).then(() => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('username')
-    localStorage.removeItem('userId')
-    router.push('/login')
+  }).then(async () => {
+    // Tell the backend to revoke BOTH the access token (jti -> denylist)
+    // and the refresh token (hash -> revoked=1) BEFORE we wipe them
+    // locally. logoutOnServer() is best-effort: a network failure
+    // still proceeds to local cleanup so the UI is never stuck.
+    // The await is wrapped in a 2 s race so a slow /auth/logout can
+    // never block the user from being redirected to /login.
+    try {
+      await Promise.race([
+        logoutOnServer(),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ])
+    } catch (_) { /* best-effort */ }
+    // clearAllAuth wipes tokens AND identity (userId, username). The
+    // explicit Logout button is the only place that should remove
+    // identity; the silent-refresh interceptor (request.js) uses the
+    // narrower clearTokens() so a 401-recovery never logs the user
+    // out of their just-typed username.
+    clearAllAuth()
+    router.push('/login').catch(() => { /* ignore duplicate-nav */ })
     ElMessage.success('Logged out successfully')
   }).catch(() => {})
 }

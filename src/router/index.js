@@ -19,8 +19,16 @@ const routes = [
   {
     path: '/',
     redirect: () => {
-      const token = localStorage.getItem('token')
-      return token ? '/dashboard' : '/login'
+      // Either the legacy `token` key (set by the old Login.vue)
+      // OR the new `accessToken` key (set by the new Login.vue)
+      // counts as a valid auth signal. Without this dual-key
+      // check, a user with only `accessToken` set would be sent
+      // to /login even though they're authenticated.
+      const hasAuth = !!(
+        localStorage.getItem('token') ||
+        localStorage.getItem('accessToken')
+      )
+      return hasAuth ? '/dashboard' : '/login'
     },
   },
   {
@@ -104,14 +112,21 @@ const router = createRouter({
  * If token doesn't exist and route requires auth, redirect to /login
  */
 router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('token')
-  const isAuthenticated = !!token
+  // Accept either the legacy `token` key OR the new `accessToken`
+  // key as proof of authentication. (The new auth flow writes
+  // both, but we check both so a user with only one of them set
+  // \u2014 e.g. after a partial migration or a manual localStorage
+  // edit \u2014 is still recognised as logged-in.)
+  const hasAuth = !!(
+    localStorage.getItem('token') ||
+    localStorage.getItem('accessToken')
+  )
 
   // Update document title
   document.title = to.meta.title || 'Personal Bookkeeping'
 
   // Check if route requires authentication
-  if (to.meta.requiresAuth && !isAuthenticated) {
+  if (to.meta.requiresAuth && !hasAuth) {
     // User is not authenticated and trying to access protected route
     ElMessage.warning('Please log in first to access this page')
     next('/login')
@@ -119,7 +134,7 @@ router.beforeEach((to, from, next) => {
   }
 
   // If user is logged in and trying to access login/register page, redirect to dashboard
-  if (!to.meta.requiresAuth && isAuthenticated && (to.path === '/login' || to.path === '/register')) {
+  if (!to.meta.requiresAuth && hasAuth && (to.path === '/login' || to.path === '/register')) {
     next('/dashboard')
     return
   }

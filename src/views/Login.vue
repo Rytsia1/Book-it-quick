@@ -108,12 +108,42 @@ const handleLogin = async () => {
       username: loginForm.username,
       password: loginForm.password,
     })
-    const token  = response.token  || response.data?.token
-    const userId = response.userId || response.data?.userId
-    if (token) {
-      localStorage.setItem('token', token)
-      localStorage.setItem('username', loginForm.username)
-      if (userId) localStorage.setItem('userId', String(userId))
+    // The backend returns BOTH an access token (15 min, JWT) and a
+    // refresh token (7 days, opaque). The response interceptor in
+    // request.js unwraps `response.data`, so the fields live at the
+    // top level — but we still fall back to `response.data.*` for
+    // older code paths / defensive coverage.
+    const data = response && response.data ? response.data : response
+    const accessToken          = data?.token         || response?.token
+    const refreshToken         = data?.refreshToken  || response?.refreshToken
+    const accessTokenExpiresAt = data?.accessTokenExpiresAt || response?.accessTokenExpiresAt
+    const userId               = data?.userId        || response?.userId
+    const username             = data?.username      || response?.username || loginForm.username
+    if (accessToken) {
+      // Persist the access token under both `accessToken` (new) and
+      // `token` (legacy) so any older call site that still reads
+      // `localStorage.getItem('token')` keeps working unchanged.
+      localStorage.setItem('accessToken', accessToken)
+      localStorage.setItem('token', accessToken)
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken)
+      }
+      if (accessTokenExpiresAt) {
+        localStorage.setItem('accessTokenExpiresAt', String(accessTokenExpiresAt))
+      }
+      // Identity: always set username; only set userId if the
+      // backend actually returned a numeric one. Without userId the
+      // Dashboard's /api/bills?userId=... requests will 400, so this
+      // is a hard requirement.
+      if (username) localStorage.setItem('username', username)
+      if (userId != null && userId !== '' && userId !== 'null' && userId !== 'undefined') {
+        localStorage.setItem('userId', String(userId))
+      } else {
+        // Clean up any stale 'null'/'undefined' string the old code
+        // may have written. The router guard and request interceptor
+        // will route the user to /login if userId is missing.
+        localStorage.removeItem('userId')
+      }
       ElMessage.success('Welcome back!')
       setTimeout(() => router.push('/dashboard'), 400)
     } else {

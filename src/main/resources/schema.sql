@@ -126,3 +126,49 @@ CREATE TABLE IF NOT EXISTS exchange_rate (
     UNIQUE KEY uk_currency_code (currency_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   COMMENT='USD-based exchange rates, refreshed daily by CurrencyScheduler';
+
+-- 9) Refresh Tokens (long-lived, revocable)
+-- The refresh token is an opaque random string (NOT a JWT) so the server
+-- has full authority to revoke it. We never store the raw token — only
+-- a SHA-256 hash. The token is sent to the client on /login and
+-- exchanged at /refresh; the server looks up by hash, checks the
+-- (revoked, expires_at) pair, and issues a new access token + rotated
+-- refresh token. Rotating on every refresh (replaced_by column) means a
+-- stolen refresh token can only be used once before the legitimate
+-- client's next refresh invalidates it.
+CREATE TABLE IF NOT EXISTS t_refresh_token (
+    id           INT          NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+    user_id      INT          NOT NULL                COMMENT 'Owner of this refresh token (FK -> t_user.id)',
+    token_hash   CHAR(64)     NOT NULL                COMMENT 'SHA-256 hex digest of the opaque refresh token (64 hex chars)',
+    expires_at   DATETIME     NOT NULL                COMMENT 'When this refresh token stops being redeemable',
+    revoked      TINYINT(1)   NOT NULL DEFAULT 0      COMMENT '0 = active, 1 = revoked (logout / rotated / anomaly)',
+    replaced_by  INT          DEFAULT NULL            COMMENT 'FK -> t_refresh_token.id of the token that replaced this one (rotation chain)',
+    created_at   DATETIME     DEFAULT NULL            COMMENT 'Creation timestamp',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_token_hash (token_hash),
+    KEY idx_user_id (user_id),
+    KEY idx_expires_at (expires_at),
+    KEY idx_user_active (user_id, revoked, expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Opaque, hashed, revocable refresh tokens issued at login';
+
+-- 10) Access-Token Denylist (jti-based, short-lived)
+-- Optional safety net for explicit access-token revocation (e.g. anomaly
+-- detected, admin force-logout). The denylist is NOT consulted on every
+-- request (that would defeat the whole point of stateless JWT); it is
+-- only checked at /refresh and /logout. Rows have their own expires_at
+-- so the daily cleanup job can drop them once the access token they
+-- reference would have naturally expired anyway — the table never grows
+-- unbounded.
+CREATE TABLE IF NOT EXISTS t_token_denylist (
+    id          INT          NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+    jti         VARCHAR(64)  NOT NULL                COMMENT 'JWT ID claim of the revoked access token (UUID)',
+    user_id     INT          DEFAULT NULL            COMMENT 'Owner of the revoked token, for diagnostics',
+    expires_at  DATETIME     NOT NULL                COMMENT 'When the original access token would have naturally expired; cleanup deletes rows past this',
+    reason      VARCHAR(64)  DEFAULT NULL            COMMENT 'Why it was revoked: logout, anomaly, rotation, manual',
+    created_at  DATETIME     DEFAULT NULL            COMMENT 'When the row was inserted',
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_jti (jti),
+    KEY idx_expires_at (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Explicitly revoked access tokens, checked at /refresh and /logout only';
