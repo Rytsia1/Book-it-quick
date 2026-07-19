@@ -1,5 +1,3 @@
-Markdown
-
 # Book-It-Quick: Advanced Online Bookkeeping System
 
 A full-stack, enterprise-grade personal financial management system. Designed to eliminate floating-point arithmetic errors and provide users with a highly intuitive, secure, and automated dashboard to track income, expenses, and passive subscriptions.
@@ -49,30 +47,38 @@ Navigate to the root directory and start the Spring Boot application:
 mvn clean install
 mvn spring-boot:run
 
-The backend server will initialize on http://localhost:5173.
-3. Frontend Setup
+```
+
+*The backend server will initialize on `http://localhost:8080`.*
+
+### 3. Frontend Setup
 
 Open a new terminal in the root directory and start the Vite development server:
-Bash
 
+```bash
 npm install
 npm run dev
 
-The client interface will be accessible at http://localhost:5173.
-🔒 API Architecture
+```
+
+*The client interface will be accessible at `http://localhost:5173`.*
+
+## 🔒 API Architecture
 
 The application exposes a robust RESTful API with key functional domains:
 
-    /api/auth/** - Secure identity management, token refreshing, and logout processing.
+* `/api/auth/**` - Secure identity management, token refreshing, and logout processing.
+* `/api/bills` & `/api/recurring` - Financial transaction and automated subscription operations.
+* `/api/budget` & `/api/stats/**` - Real-time financial aggregation and analytics data.
+* `/api/exchange-rates` - Currency synchronization and conversion retrieval.
 
-    /api/bills & /api/recurring - Financial transaction and automated subscription operations.
+*(For detailed request/response payloads, refer to the `api-test.http` file included in the repository).*
 
-    /api/budget & /api/stats/** - Real-time financial aggregation and analytics data.
+## 👨‍💻 Author
 
-    /api/exchange-rates - Currency synchronization and conversion retrieval.
+**Dio Stania Adinata**
+*Game Technology | Software Engineering*
 
-(For detailed request/response payloads, refer to the api-test.http file included in the repository).
-👨‍💻 Author
+```
 
-Dio Stania Adinata
-Game Technology | Software Engineering
+```
